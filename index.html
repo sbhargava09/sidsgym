@@ -96,7 +96,10 @@ body{display:flex;flex-direction:column;}
 .ex-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:opacity 0.2s;}
 .ex-card.dragging{opacity:0.5;}
 .ex-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;}
-.drag-handle{color:var(--text3);font-size:18px;cursor:grab;padding:4px 2px;touch-action:none;flex-shrink:0;}
+.move-btns{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
+.move-btn{background:var(--surf3);border:none;border-radius:4px;color:var(--text3);font-size:13px;width:24px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;}
+.move-btn:active{background:var(--border2);color:var(--text);}
+.move-btn:disabled{opacity:0.2;pointer-events:none;}
 .ex-info{flex:1;min-width:0;}
 .ex-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ex-meta{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:2px;}
@@ -545,8 +548,10 @@ function makeSessionKey(type){ return dateKey(new Date()) + '_' + Date.now() + '
 function sessionDate(k){ return k.slice(0,10); } // extract YYYY-MM-DD from key
 
 function getLastWeights(exName) {
-  // Sort by startedAt timestamp descending for true recency
-  const sorted = Object.values(sessions).filter(s=>s.startedAt).sort((a,b)=>b.startedAt-a.startedAt);
+  // Only look at FINISHED sessions, sorted most recent first
+  const sorted = Object.values(sessions)
+    .filter(s => s.startedAt && s.finishedAt)
+    .sort((a,b) => b.finishedAt - a.finishedAt);
   for(const s of sorted) {
     if(!s.exercises) continue;
     const ex = s.exercises.find(e=>e.name===exName);
@@ -635,6 +640,10 @@ function togglePhase(name) {
 // ── RENDER EXERCISES ─────────────────────────────────────────────────────────
 function renderExercises() {
   const list = document.getElementById('ex-list');
+  const total = currentSession.exercises.length;
+  // Remember open panels
+  const openPanels = new Set();
+  document.querySelectorAll('.ex-body.open').forEach(el => openPanels.add(parseInt(el.id.replace('ex-body-',''))));
   list.innerHTML = '';
   currentSession.exercises.forEach((ex, ei) => {
     const card = document.createElement('div');
@@ -643,39 +652,48 @@ function renderExercises() {
     const doneSets = ex.sets.filter(s=>s.done).length;
     const allDone = doneSets === ex.sets.length;
     card.innerHTML = `
-      <div class="ex-header" onclick="toggleEx(${ei},this)">
-        <div class="drag-handle" data-ei="${ei}">⠿</div>
-        <div class="ex-info">
-          <div class="ex-name" style="${allDone?'color:var(--accent)':''}">${allDone?'✓ ':''}${ex.name}</div>
-          <div class="ex-meta">${doneSets}/${ex.sets.length} sets · ${ex.sets.reduce((a,s)=>a+(s.done?s.weight*s.reps:0),0).toLocaleString()} lbs</div>
+      <div style="display:flex;align-items:stretch;">
+        <div class="move-btns" style="display:flex;flex-direction:column;gap:2px;padding:10px 0 10px 10px;flex-shrink:0;justify-content:center;">
+          <button class="move-btn" onclick="moveEx(${ei},-1)" ${ei===0?'disabled':''}>▲</button>
+          <button class="move-btn" onclick="moveEx(${ei},1)" ${ei===total-1?'disabled':''}>▼</button>
         </div>
-        <div class="ex-chevron" id="chev-${ei}">›</div>
-      </div>
-      <div class="ex-body" id="ex-body-${ei}">
-        <div class="sets-header">
-          <div class="sets-col-label">#</div>
-          <div class="sets-col-label">LBS</div>
-          <div class="sets-col-label">REPS</div>
-          <div></div>
+        <div style="flex:1;min-width:0;">
+          <div class="ex-header" onclick="toggleEx(${ei})">
+            <div class="ex-info">
+              <div class="ex-name" style="${allDone?'color:var(--accent)':''}">${allDone?'✓ ':''}${ex.name}</div>
+              <div class="ex-meta">${doneSets}/${ex.sets.length} sets · ${ex.sets.reduce((a,s)=>a+(s.done?s.weight*s.reps:0),0).toLocaleString()} lbs</div>
+            </div>
+            <div class="ex-chevron" id="chev-${ei}">›</div>
+          </div>
+          <div class="ex-body" id="ex-body-${ei}">
+            <div class="sets-header">
+              <div class="sets-col-label">#</div>
+              <div class="sets-col-label">LBS</div>
+              <div class="sets-col-label">REPS</div>
+              <div></div>
+            </div>
+            ${ex.sets.map((s,si)=>`
+              <div class="set-row" id="set-${ei}-${si}">
+                <div class="set-num">${si+1}</div>
+                <div class="set-val ${s.done?'done-val':''}" onclick="openDrum(${ei},${si},'weight')">${s.weight}</div>
+                <div class="set-val ${s.done?'done-val':''}" onclick="openDrum(${ei},${si},'reps')">${s.reps}</div>
+                <div class="set-check ${s.done?'done':''}" onclick="toggleSet(${ei},${si})"></div>
+              </div>`).join('')}
+            <button class="add-set-btn" onclick="addSet(${ei})">+ Add Set</button>
+          </div>
         </div>
-        ${ex.sets.map((s,si)=>`
-          <div class="set-row" id="set-${ei}-${si}">
-            <div class="set-num">${si+1}</div>
-            <div class="set-val ${s.done?'done-val':''}" onclick="openDrum(${ei},${si},'weight')">${s.weight}</div>
-            <div class="set-val ${s.done?'done-val':''}" onclick="openDrum(${ei},${si},'reps')">${s.reps}</div>
-            <div class="set-check ${s.done?'done':''}" onclick="toggleSet(${ei},${si})"></div>
-          </div>`).join('')}
-        <button class="add-set-btn" onclick="addSet(${ei})">+ Add Set</button>
       </div>`;
-    // Drag setup
-    const handle = card.querySelector('.drag-handle');
-    handle.addEventListener('touchstart', e=>onDragStart(e,ei), {passive:true});
     list.appendChild(card);
+  });
+  // Restore open panels
+  openPanels.forEach(idx => {
+    const b = document.getElementById('ex-body-'+idx); if(b) b.classList.add('open');
+    const c = document.getElementById('chev-'+idx); if(c) c.classList.add('open');
   });
   updateProgress();
 }
 
-function toggleEx(ei, headerEl) {
+function toggleEx(ei) {
   const body = document.getElementById('ex-body-'+ei);
   const chev = document.getElementById('chev-'+ei);
   const open = body.classList.toggle('open');
@@ -904,89 +922,29 @@ function saveNewExercise() {
   renderExercises();
 }
 
-// ── DRAG TO REORDER ───────────────────────────────────────────────────────────
-let dragEi = -1, dragClone = null, dragOriginal = null, dragStartY = 0, dragCurrentY = 0;
-
-function onDragStart(e, ei) {
-  e.stopPropagation();
-  const touch = e.touches[0];
-  dragEi = ei;
-  dragStartY = touch.clientY;
-  dragCurrentY = touch.clientY;
-  dragOriginal = document.querySelector(`.ex-card[data-ei="${ei}"]`);
-  if(!dragOriginal) return;
-
-  // Create floating clone that follows the finger
-  dragClone = dragOriginal.cloneNode(true);
-  const rect = dragOriginal.getBoundingClientRect();
-  dragClone.style.cssText = `
-    position:fixed; left:${rect.left}px; top:${rect.top}px;
-    width:${rect.width}px; z-index:500; opacity:0.92;
-    box-shadow:0 8px 32px rgba(0,0,0,0.5); pointer-events:none;
-    border-radius:12px; transition:none;
-  `;
-  document.body.appendChild(dragClone);
-  dragOriginal.style.opacity = '0.3';
-
-  const onMove = ev => {
-    const t = ev.touches[0];
-    const dy = t.clientY - dragCurrentY;
-    dragCurrentY = t.clientY;
-    // Move clone
-    const cloneTop = parseFloat(dragClone.style.top) + dy;
-    dragClone.style.top = cloneTop + 'px';
-    // Determine insertion point
-    const list = document.getElementById('ex-list');
-    const cards = [...list.querySelectorAll('.ex-card')];
-    const fingerY = t.clientY;
-    let newIdx = dragEi;
-    for(let i = 0; i < cards.length; i++) {
-      const r = cards[i].getBoundingClientRect();
-      const mid = r.top + r.height / 2;
-      if(i !== dragEi && fingerY < mid) { newIdx = i; break; }
-      if(i !== dragEi && fingerY >= mid) { newIdx = i; }
+// ── MOVE EXERCISE UP / DOWN ───────────────────────────────────────────────────
+function moveEx(ei, dir) {
+  const exs = currentSession.exercises;
+  const newIdx = ei + dir;
+  if(newIdx < 0 || newIdx >= exs.length) return;
+  // Track which exercise names were open (not indices — indices change after swap)
+  const openNames = new Set();
+  document.querySelectorAll('.ex-body.open').forEach(el => {
+    const idx = parseInt(el.id.replace('ex-body-',''));
+    if(exs[idx]) openNames.add(exs[idx].name);
+  });
+  // Always keep the moved exercise open
+  openNames.add(exs[ei].name);
+  [exs[ei], exs[newIdx]] = [exs[newIdx], exs[ei]];
+  saveSession();
+  renderExercises();
+  // Re-open by name now that indices have changed
+  exs.forEach((ex, i) => {
+    if(openNames.has(ex.name)) {
+      const b = document.getElementById('ex-body-'+i); if(b) b.classList.add('open');
+      const c = document.getElementById('chev-'+i); if(c) c.classList.add('open');
     }
-    if(newIdx !== dragEi) {
-      const exs = currentSession.exercises;
-      const [item] = exs.splice(dragEi, 1);
-      exs.splice(newIdx, 0, item);
-      // Preserve open panels
-      const openPanels = new Set();
-      document.querySelectorAll('.ex-body.open').forEach(el => openPanels.add(parseInt(el.id.replace('ex-body-',''))));
-      dragEi = newIdx;
-      renderExercises();
-      openPanels.forEach(idx => {
-        const b = document.getElementById('ex-body-'+idx); if(b) b.classList.add('open');
-        const c = document.getElementById('chev-'+idx); if(c) c.classList.add('open');
-      });
-      dragOriginal = document.querySelector(`.ex-card[data-ei="${dragEi}"]`);
-      if(dragOriginal) dragOriginal.style.opacity = '0.3';
-      // Re-attach drag handles
-      document.querySelectorAll('.drag-handle').forEach(h => {
-        const idx = parseInt(h.dataset.ei);
-        h.addEventListener('touchstart', ev => onDragStart(ev, idx), {passive:true});
-      });
-    }
-  };
-
-  const onEnd = () => {
-    if(dragClone) { document.body.removeChild(dragClone); dragClone = null; }
-    if(dragOriginal) { dragOriginal.style.opacity = ''; dragOriginal = null; }
-    const openPanels = new Set();
-    document.querySelectorAll('.ex-body.open').forEach(el => openPanels.add(parseInt(el.id.replace('ex-body-',''))));
-    saveSession();
-    renderExercises();
-    openPanels.forEach(idx => {
-      const b = document.getElementById('ex-body-'+idx); if(b) b.classList.add('open');
-      const c = document.getElementById('chev-'+idx); if(c) c.classList.add('open');
-    });
-    dragEi = -1;
-    document.removeEventListener('touchmove', onMove);
-    document.removeEventListener('touchend', onEnd);
-  };
-
-  document.addEventListener('touchmove', onMove, {passive:true});
-  document.addEventListener('touchend', onEnd);
+  });
 }
 
 // ── OVERLAY HELPERS ───────────────────────────────────────────────────────────
