@@ -31,7 +31,7 @@ body{display:flex;flex-direction:column;}
 .nav-timer.active{display:block;}
 
 /* TABS */
-.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surf);border-bottom:1px solid var(--border);flex-shrink:0;}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);background:var(--surf);border-bottom:1px solid var(--border);flex-shrink:0;}
 .tab{padding:11px 4px;text-align:center;font-size:11px;font-weight:700;color:var(--text3);cursor:pointer;letter-spacing:0.05em;border-bottom:2px solid transparent;transition:all 0.18s;user-select:none;}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
 
@@ -188,8 +188,20 @@ body{display:flex;flex-direction:column;}
 .prog-val{font-size:11px;font-family:'DM Mono',monospace;color:var(--text);font-weight:600;min-width:54px;text-align:right;}
 .empty{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px;line-height:2;}
 
-/* SECTION LABEL */
-.sec-label{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.08em;margin-bottom:8px;display:flex;justify-content:space-between;}
+/* LIBRARY */
+.lib-ex-row{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--surf);border:1px solid var(--border);border-radius:var(--rsm);margin-bottom:6px;}
+.lib-ex-name{flex:1;font-size:13px;font-weight:600;color:var(--text);}
+.lib-move-btn{background:var(--surf2);border:none;border-radius:4px;color:var(--text3);font-size:12px;width:26px;height:26px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.lib-move-btn:active{background:var(--surf3);color:var(--text);}
+.lib-move-btn:disabled{opacity:0.2;pointer-events:none;}
+.lib-del-btn{background:var(--red-dim);border:none;border-radius:4px;color:var(--red);font-size:14px;width:26px;height:26px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;}
+.bank-title{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.07em;margin:12px 0 8px;}
+.bank-pills{display:flex;flex-wrap:wrap;gap:6px;}
+.bank-pill{padding:6px 12px;border-radius:20px;border:1px solid var(--border2);background:var(--surf2);color:var(--text2);font-family:'Syne',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.12s;}
+.bank-pill:active{background:var(--surf3);}
+.bank-pill.in-list{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+.bank-pill.in-list-blue{border-color:var(--blue);color:var(--blue);background:var(--blue-dim);}
+.bank-pill.in-list-orange{border-color:var(--orange);color:var(--orange);background:var(--orange-dim);}
 </style>
 </head>
 <body>
@@ -197,7 +209,10 @@ body{display:flex;flex-direction:column;}
 <div class="nav">
   <div class="nav-top">
     <div class="nav-brand">SID'S GYM</div>
-    <div class="nav-timer" id="nav-timer">0:00</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="nav-timer" id="nav-timer">0:00</div>
+      <button id="nav-pause-btn" onclick="toggleWorkoutPause()" style="display:none;background:var(--surf2);border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:14px;width:30px;height:30px;cursor:pointer;flex-shrink:0;padding:0;line-height:1;align-items:center;justify-content:center;">⏸</button>
+    </div>
     <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;text-align:right;" id="nav-date"></div>
   </div>
 </div>
@@ -207,6 +222,7 @@ body{display:flex;flex-direction:column;}
   <div class="tab" onclick="showPage('history')">LOG</div>
   <div class="tab" onclick="showPage('trends')">TRENDS</div>
   <div class="tab" onclick="showPage('health')">HEALTH</div>
+  <div class="tab" onclick="showPage('library')">LIBRARY</div>
 </div>
 
 <div class="scroll">
@@ -217,15 +233,6 @@ body{display:flex;flex-direction:column;}
     <div class="stat-card"><div class="stat-label">STREAK</div><div class="stat-val accent" id="s-streak">0</div><div class="stat-sub">days</div></div>
     <div class="stat-card"><div class="stat-label">THIS MONTH</div><div class="stat-val" id="s-month">0</div><div class="stat-sub">sessions</div></div>
     <div class="stat-card"><div class="stat-label">THIS WEEK VOL</div><div class="stat-val" id="s-vol">0</div><div class="stat-sub">lbs</div></div>
-  </div>
-
-  <!-- Warmup -->
-  <div class="phase-bar" id="warmup-bar">
-    <div><div class="phase-label">WARM UP</div><div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;">5 min</div></div>
-    <div class="phase-timer" id="warmup-timer">5:00</div>
-    <div class="phase-btns">
-      <button class="phase-btn go" id="warmup-btn" onclick="togglePhase('warmup')">START</button>
-    </div>
   </div>
 
   <!-- Workout type -->
@@ -242,6 +249,16 @@ body{display:flex;flex-direction:column;}
 
   <!-- Workout content (hidden until started) -->
   <div id="workout-content" style="display:none;">
+
+    <!-- Warmup -->
+    <div class="phase-bar" id="warmup-bar" style="margin-bottom:14px;">
+      <div><div class="phase-label">WARM UP</div><div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;">5 min</div></div>
+      <div class="phase-timer" id="warmup-timer">5:00</div>
+      <div class="phase-btns">
+        <button class="phase-btn go" id="warmup-btn" onclick="togglePhase('warmup')">START</button>
+      </div>
+    </div>
+
     <!-- Strength view -->
     <div id="strength-view">
       <div class="sec-label" style="margin-bottom:8px;" id="workout-progress-label">0 / 0 sets · 0 lbs</div>
@@ -352,9 +369,20 @@ body{display:flex;flex-direction:column;}
 
 <!-- HEALTH -->
 <div class="page" id="page-health">
-  <div class="sec-label" style="margin-bottom:8px;">DATA</div>
+  <div class="sec-label" style="margin-bottom:8px;">GOOGLE SHEETS SYNC</div>
   <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:16px;">
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6;">Your data lives in Safari's local storage on this iPhone. Export a backup regularly so it survives app updates or clearing browser data. Import merges without overwriting newer entries.</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6;">Paste your Apps Script Web App URL to enable automatic syncing after every workout. Data saves to localStorage always — Sheets is an extra backup.</div>
+    <input id="sheets-url-input" type="url" placeholder="https://script.google.com/macros/s/..." style="background:var(--surf2);border:1px solid var(--border2);border-radius:var(--rsm);padding:10px 12px;font-size:13px;color:var(--text);font-family:'DM Mono',monospace;width:100%;margin-bottom:8px;box-sizing:border-box;" oninput="saveSheetsUrl(this.value)">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button onclick="testSheetsConnection()" style="padding:11px 6px;border-radius:var(--rsm);border:1px solid var(--border2);background:var(--surf2);color:var(--text);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Test Connection</button>
+      <button onclick="syncAllToSheets()" style="padding:11px 6px;border-radius:var(--rsm);border:none;background:var(--accent-dim);color:var(--accent);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">↑ Sync All Now</button>
+    </div>
+    <div id="sheets-status" style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);margin-top:8px;display:none;"></div>
+  </div>
+
+  <div class="sec-label" style="margin-bottom:8px;">DATA BACKUP</div>
+  <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:16px;">
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6;">Export a local backup anytime. Import merges without overwriting newer entries.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <button onclick="exportData()" style="padding:12px 6px;border-radius:var(--rsm);border:1px solid var(--border2);background:var(--surf2);color:var(--text);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⬆ Export Backup</button>
       <label style="padding:12px 6px;border-radius:var(--rsm);border:1px solid var(--border2);background:var(--surf2);color:var(--text);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:center;display:block;">
@@ -364,8 +392,53 @@ body{display:flex;flex-direction:column;}
     </div>
     <div id="import-status" style="font-size:11px;font-family:'DM Mono',monospace;color:var(--accent);margin-top:8px;display:none;"></div>
   </div>
+
   <div class="sec-label" style="margin-bottom:10px;">METRICS LOG</div>
   <div id="health-list"><div class="empty">No health metrics logged yet.<br>You'll be prompted after each workout.</div></div>
+</div>
+
+<!-- LIBRARY -->
+<div class="page" id="page-library">
+  <div style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6;">
+    Your active list loads into each workout. Tap a pill to add/remove from your active list. Type anything custom in the box. Changes take effect next time you start a workout.
+  </div>
+
+  <div id="lib-upper-section" class="lib-section">
+    <div class="sec-label" style="margin-bottom:8px;"><span style="color:var(--blue);">🏋️ UPPER BODY — ACTIVE LIST</span></div>
+    <div id="lib-upper-list"></div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <input id="lib-upper-input" class="sheet-input" style="margin:0;flex:1;font-size:14px;padding:10px 12px;" placeholder="Type custom exercise..." type="text" onkeydown="if(event.key==='Enter')libAddEx('upper')">
+      <button onclick="libAddEx('upper')" style="padding:10px 16px;border-radius:var(--rsm);border:none;background:var(--blue-dim);color:var(--blue);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">Add</button>
+    </div>
+    <div class="bank-title">EXERCISE BANK — tap to add · tap again to remove</div>
+    <div class="bank-pills" id="bank-upper"></div>
+  </div>
+
+  <div style="height:1px;background:var(--border);margin:20px 0;"></div>
+
+  <div id="lib-lower-section" class="lib-section">
+    <div class="sec-label" style="margin-bottom:8px;"><span style="color:var(--orange);">🦵 LOWER BODY — ACTIVE LIST</span></div>
+    <div id="lib-lower-list"></div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <input id="lib-lower-input" class="sheet-input" style="margin:0;flex:1;font-size:14px;padding:10px 12px;" placeholder="Type custom exercise..." type="text" onkeydown="if(event.key==='Enter')libAddEx('lower')">
+      <button onclick="libAddEx('lower')" style="padding:10px 16px;border-radius:var(--rsm);border:none;background:var(--orange-dim);color:var(--orange);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">Add</button>
+    </div>
+    <div class="bank-title">EXERCISE BANK — tap to add · tap again to remove</div>
+    <div class="bank-pills" id="bank-lower"></div>
+  </div>
+
+  <div style="height:1px;background:var(--border);margin:20px 0;"></div>
+
+  <div id="lib-full-section" class="lib-section">
+    <div class="sec-label" style="margin-bottom:8px;"><span style="color:var(--accent);">🔥 FULL BODY — ACTIVE LIST</span></div>
+    <div id="lib-full-list"></div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <input id="lib-full-input" class="sheet-input" style="margin:0;flex:1;font-size:14px;padding:10px 12px;" placeholder="Type custom exercise..." type="text" onkeydown="if(event.key==='Enter')libAddEx('full')">
+      <button onclick="libAddEx('full')" style="padding:10px 16px;border-radius:var(--rsm);border:none;background:var(--accent-dim);color:var(--accent);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">Add</button>
+    </div>
+    <div class="bank-title">EXERCISE BANK — tap to add · tap again to remove</div>
+    <div class="bank-pills" id="bank-full"></div>
+  </div>
 </div>
 
 </div><!-- end scroll -->
@@ -423,13 +496,6 @@ body{display:flex;flex-direction:column;}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-// ── WORKOUT TEMPLATES ────────────────────────────────────────────────────────
-const TEMPLATES = {
-  upper: { label:'Upper Body', exercises:['Barbell Bench Press','Barbell Row','Overhead Press (DB)','Pull-Ups','Dumbbell Curl','Tricep Band Pushdown'] },
-  lower: { label:'Lower Body', exercises:['Barbell Squat','Romanian Deadlift','Walking DB Lunges','Calf Raises','Ab Wheel Rollout','Band Hip Abduction'] },
-  full:  { label:'Full Body',  exercises:['Barbell Deadlift','Dumbbell Press','Goblet Squat (DB)','Pull-Ups','DB Lateral Raises','Ab Wheel Rollout'] }
-};
-
 // ── STORAGE ──────────────────────────────────────────────────────────────────
 function load(k,d){try{return JSON.parse(localStorage.getItem(k))??d;}catch{return d;}}
 function save(k,v){localStorage.setItem(k,JSON.stringify(v));}
@@ -437,14 +503,65 @@ function save(k,v){localStorage.setItem(k,JSON.stringify(v));}
 // ── STORAGE KEYS — permanent, version-stable names all future app versions must use ──
 const SESSIONS_KEY = 'sidsgym_sessions';
 const HEALTH_KEY   = 'sidsgym_health';
-const DATA_SCHEMA  = 2; // v2: sessions keyed by unique ID, each has a .date field
+const LIBRARY_KEY  = 'sidsgym_library'; // user-editable exercise lists per workout type
+const DATA_SCHEMA  = 2;
 
-// sessions is now an object keyed by unique session ID (timestamp string)
-// Each session has: { id, date (YYYY-MM-DD), type, startedAt, finishedAt, duration, exercises/cardio }
-// health is still keyed by YYYY-MM-DD (one health entry per day is fine)
+// Default active lists — used only if no library exists yet in localStorage
+const DEFAULT_LIBRARY = {
+  upper: ['Barbell Bench Press','Barbell Row','Overhead Press (DB)','Pull-Ups','Dumbbell Curl','Tricep Band Pushdown'],
+  lower: ['Barbell Squat','Romanian Deadlift','Walking DB Lunges','Calf Raises','Ab Wheel Rollout','Band Hip Abduction'],
+  full:  ['Barbell Deadlift','Dumbbell Press','Goblet Squat (DB)','Pull-Ups','DB Lateral Raises','Ab Wheel Rollout']
+};
+
+// Full exercise bank — browse and tap to add to active list
+const EXERCISE_BANK = {
+  upper: [
+    'Barbell Bench Press','Incline DB Press','Decline Bench Press','Dumbbell Flyes','Cable Crossover',
+    'Barbell Row','DB Single-Arm Row','Cable Row','T-Bar Row','Chest-Supported Row',
+    'Overhead Press (DB)','Barbell Overhead Press','Arnold Press','Lateral Raises','Front Raises',
+    'Pull-Ups','Chin-Ups','Lat Pulldown','Straight-Arm Pulldown','Face Pulls',
+    'Dumbbell Curl','Barbell Curl','Hammer Curl','Preacher Curl','Cable Curl',
+    'Tricep Band Pushdown','Skull Crushers','Overhead Tricep Extension','Close-Grip Bench Press','Dips',
+    'Shrugs','Upright Row','Rear Delt Flyes','Incline Curl','Concentration Curl'
+  ],
+  lower: [
+    'Barbell Squat','Front Squat','Hack Squat','Leg Press','Smith Machine Squat',
+    'Romanian Deadlift','Conventional Deadlift','Sumo Deadlift','Good Mornings','Glute Bridge',
+    'Walking DB Lunges','Reverse Lunges','Bulgarian Split Squat','Step-Ups','Lateral Lunges',
+    'Leg Curl (Machine)','Lying Leg Curl','Nordic Hamstring Curl','Seated Leg Curl','Single-Leg Deadlift',
+    'Calf Raises','Seated Calf Raise','Donkey Calf Raise','Single-Leg Calf Raise','Box Jumps',
+    'Ab Wheel Rollout','Hanging Leg Raise','Cable Crunch','Plank','Dead Bug',
+    'Band Hip Abduction','Hip Thrust','Banded Clamshell','Side-Lying Hip Abduction','Glute Kickback'
+  ],
+  full: [
+    'Barbell Deadlift','Trap Bar Deadlift','Power Clean','Kettlebell Swing','Clean and Press',
+    'Dumbbell Press','Push Press','Landmine Press','Single-Arm KB Press','Seated DB Press',
+    'Goblet Squat (DB)','Barbell Squat','Zercher Squat','KB Front Squat','Pause Squat',
+    'Pull-Ups','TRX Row','Renegade Row','Single-Arm Row','Meadows Row',
+    'DB Lateral Raises','Cuban Press','Band Pull-Apart','Plate Front Raise','Y-T-W Raise',
+    'Ab Wheel Rollout','Turkish Get-Up','Farmers Carry','Suitcase Carry','Pallof Press',
+    'Burpees','Thrusters','Bear Complex','Man Makers','Battle Ropes'
+  ]
+};
 
 let sessions  = load(SESSIONS_KEY, {});
 let healthLog = load(HEALTH_KEY, {});
+let library   = load(LIBRARY_KEY, JSON.parse(JSON.stringify(DEFAULT_LIBRARY)));
+
+// TEMPLATES is built from the live library — always reflects latest user choices
+const TEMPLATES = {
+  upper: { label:'Upper Body', exercises: library.upper },
+  lower: { label:'Lower Body', exercises: library.lower },
+  full:  { label:'Full Body',  exercises: library.full  }
+};
+
+function saveLibrary() {
+  save(LIBRARY_KEY, library);
+  // Keep TEMPLATES in sync
+  TEMPLATES.upper.exercises = library.upper;
+  TEMPLATES.lower.exercises = library.lower;
+  TEMPLATES.full.exercises  = library.full;
+}
 
 // Migrate v1 data (keyed by date) to v2 (keyed by session ID) transparently
 (function migrateV1() {
@@ -464,6 +581,9 @@ let currentType = 'upper';
 let workoutStarted = false;
 let workoutStartTime = null;
 let workoutTimerInterval = null;
+let workoutPaused = false;
+let workoutPausedAt = null;   // timestamp when paused
+let workoutPausedTotal = 0;   // total ms spent paused
 let currentSession = null;
 let currentSessionId = null; // unique ID for this session
 let currentDateKey = null;   // YYYY-MM-DD, kept for health log
@@ -492,11 +612,41 @@ function showPage(id) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
-  const tabs = ['today','history','trends','health'];
+  const tabs = ['today','history','trends','health','library'];
   document.querySelectorAll('.tab')[tabs.indexOf(id)]?.classList.add('active');
   if(id==='history') renderHistory();
   if(id==='trends') renderTrends();
-  if(id==='health') renderHealth();
+  if(id==='health') { renderHealth(); initHealthTab(); }
+  if(id==='library') renderLibrary();
+}
+
+function initHealthTab() {
+  const input = document.getElementById('sheets-url-input');
+  if(input) input.value = getSheetsUrl();
+}
+
+function saveSheetsUrl(val) {
+  setSheetsUrl(val);
+  const status = document.getElementById('sheets-status');
+  status.style.display = 'block';
+  status.style.color = 'var(--text3)';
+  status.textContent = val.trim() ? 'URL saved ✓' : 'URL cleared';
+  setTimeout(()=>status.style.display='none', 2000);
+}
+
+function testSheetsConnection() {
+  const url = getSheetsUrl();
+  if(!url){ showToast('⚠ No URL entered'); return; }
+  const status = document.getElementById('sheets-status');
+  status.style.display='block'; status.style.color='var(--text3)';
+  status.textContent = 'Testing…';
+  fetch(url)
+    .then(r=>r.json())
+    .then(d=>{
+      status.style.color='var(--accent)';
+      status.textContent = d.status==='ok' ? '✓ Connected — script is live' : '⚠ Script responded with error';
+    })
+    .catch(()=>{ status.style.color='var(--red)'; status.textContent='⚠ Could not connect — check URL'; });
 }
 
 // ── WORKOUT TYPE ─────────────────────────────────────────────────────────────
@@ -547,20 +697,21 @@ function todayKey(){ return dateKey(new Date()); }
 function makeSessionKey(type){ return dateKey(new Date()) + '_' + Date.now() + '_' + type; }
 function sessionDate(k){ return k.slice(0,10); } // extract YYYY-MM-DD from key
 
-function getLastWeights(exName) {
-  // Only look at FINISHED sessions, sorted most recent first
+function getLastSets(exName) {
+  // Return the full set array from the most recent finished session containing this exercise.
+  // This preserves per-set weight/rep differences (e.g. warm-up set vs working sets).
   const sorted = Object.values(sessions)
     .filter(s => s.startedAt && s.finishedAt)
     .sort((a,b) => b.finishedAt - a.finishedAt);
   for(const s of sorted) {
     if(!s.exercises) continue;
-    const ex = s.exercises.find(e=>e.name===exName);
-    if(ex && ex.sets?.length) {
-      const last = ex.sets[ex.sets.length-1];
-      return { weight: last.weight||50, reps: last.reps||10 };
-    }
+    const ex = s.exercises.find(e => e.name === exName);
+    if(!ex || !ex.sets?.length) continue;
+    // Return previous sets stripped of done-flag, keeping weight+reps per set
+    return ex.sets.map(st => ({ weight: st.weight||50, reps: st.reps||10, done: false }));
   }
-  return { weight:50, reps:10 };
+  // No history — return default 4 sets
+  return Array.from({length:4}, () => ({ weight:50, reps:10, done:false }));
 }
 
 function makeSession(type) {
@@ -571,8 +722,8 @@ function makeSession(type) {
   return {
     type, startedAt: Date.now(), finishedAt: null,
     exercises: tmpl.exercises.map(name => {
-      const prev = getLastWeights(name);
-      return { name, sets: Array.from({length:4}, ()=>({weight:prev.weight, reps:prev.reps, done:false})) };
+      const prevSets = getLastSets(name);
+      return { name, sets: prevSets };
     })
   };
 }
@@ -591,7 +742,12 @@ function startWorkout() {
   document.getElementById('strength-view').style.display = isCardio ? 'none' : 'block';
   document.getElementById('cardio-view').style.display = isCardio ? 'block' : 'none';
   startWorkoutTimer();
-  if(!isCardio) renderExercises();
+  if(!isCardio) {
+    renderExercises();
+    // Show how many past sessions were used for weight memory
+    const pastCount = Object.values(sessions).filter(s=>s.startedAt&&s.finishedAt).length;
+    if(pastCount > 0) showToast('Loaded weights from ' + pastCount + ' past session' + (pastCount>1?'s':''));
+  }
 }
 
 function rebuildSession() {
@@ -602,12 +758,42 @@ function rebuildSession() {
 
 function startWorkoutTimer() {
   const el = document.getElementById('nav-timer');
+  const btn = document.getElementById('nav-pause-btn');
   el.classList.add('active');
+  btn.style.display = 'flex';
+  btn.style.alignItems = 'center';
+  btn.style.justifyContent = 'center';
   workoutTimerInterval = setInterval(()=>{
-    const s = Math.floor((Date.now()-workoutStartTime)/1000);
-    const m = Math.floor(s/60), sec = s%60;
+    if(workoutPaused) return;
+    const elapsed = Math.floor((Date.now() - workoutStartTime - workoutPausedTotal) / 1000);
+    const m = Math.floor(elapsed/60), sec = elapsed%60;
     el.textContent = m+':'+(sec<10?'0':'')+sec;
   }, 1000);
+}
+
+function toggleWorkoutPause() {
+  const btn = document.getElementById('nav-pause-btn');
+  const el = document.getElementById('nav-timer');
+  if(!workoutPaused) {
+    // Pause
+    workoutPaused = true;
+    workoutPausedAt = Date.now();
+    btn.textContent = '▶';
+    btn.style.color = 'var(--accent)';
+    btn.style.borderColor = 'var(--accent)';
+    el.style.opacity = '0.4';
+    showToast('Workout paused');
+  } else {
+    // Resume
+    workoutPausedTotal += Date.now() - workoutPausedAt;
+    workoutPausedAt = null;
+    workoutPaused = false;
+    btn.textContent = '⏸';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+    el.style.opacity = '1';
+    showToast('Workout resumed');
+  }
 }
 
 // ── PHASE TIMERS ─────────────────────────────────────────────────────────────
@@ -781,10 +967,18 @@ function finishWorkout() {
     };
   }
   currentSession.finishedAt = Date.now();
-  currentSession.duration = Math.round((currentSession.finishedAt - currentSession.startedAt)/1000);
+  // Duration excludes time spent paused
+  const totalPaused = workoutPausedTotal + (workoutPaused && workoutPausedAt ? Date.now()-workoutPausedAt : 0);
+  currentSession.duration = Math.round((currentSession.finishedAt - currentSession.startedAt - totalPaused)/1000);
   saveSession();
   clearInterval(workoutTimerInterval);
   document.getElementById('nav-timer').classList.remove('active');
+  document.getElementById('nav-timer').style.opacity = '1';
+  const pauseBtn = document.getElementById('nav-pause-btn');
+  pauseBtn.style.display = 'none';
+  pauseBtn.textContent = '⏸';
+  pauseBtn.style.color = '';
+  pauseBtn.style.borderColor = '';
   workoutStarted = false;
   showMetricsPrompt();
 }
@@ -805,6 +999,7 @@ function saveMetrics() {
   };
   healthLog[todayDate] = m;
   save(HEALTH_KEY, healthLog);
+  syncHealthToSheets(m); // push to Sheets silently
   ['m-rhr','m-hrv','m-recovery','m-vo2','m-sleep','m-bw'].forEach(id=>document.getElementById(id).value='');
   closeOverlay('metrics-overlay');
   resetTodayUI();
@@ -830,16 +1025,52 @@ function resetTodayUI() {
   ['run','bike','elliptical','swim','row','other'].forEach(s=>{ const el=document.getElementById('csub-'+s); if(el) el.className='cardio-sub-btn'+(s==='run'?' active':''); });
   ['easy','moderate','tempo','hard','intervals'].forEach(x=>{ const el=document.getElementById('eff-'+x); if(el) el.className='effort-btn'; });
   currentSession=null; currentSessionId=null; currentDateKey=null; workoutStarted=false;
+  workoutPaused=false; workoutPausedAt=null; workoutPausedTotal=0;
   updateStats();
   setTimeout(autoBackup, 600);
 }
 
+// ── GOOGLE SHEETS SYNC ───────────────────────────────────────────────────────
+// Paste your Apps Script Web App URL here after deploying (saved in localStorage).
+// Leave empty to disable — app works fully offline without it.
+function getSheetsUrl(){ return localStorage.getItem('sidsgym_sheets_url')||''; }
+function setSheetsUrl(url){ localStorage.setItem('sidsgym_sheets_url', url.trim()); }
+
+function syncSessionToSheets(sessionId, session) {
+  const url = getSheetsUrl(); if(!url) return;
+  fetch(url, {
+    method:'POST',
+    body: JSON.stringify({ type:'session', sessionId, session })
+  }).catch(()=>{});
+}
+
+function syncHealthToSheets(metrics) {
+  const url = getSheetsUrl(); if(!url) return;
+  fetch(url, {
+    method:'POST',
+    body: JSON.stringify({ type:'health', metrics })
+  }).catch(()=>{});
+}
+
+function syncAllToSheets() {
+  const url = getSheetsUrl();
+  if(!url){ showToast('⚠ No Sheets URL — add it in Health tab'); return; }
+  showToast('Syncing to Google Sheets…');
+  fetch(url, {
+    method:'POST',
+    body: JSON.stringify({ type:'fullSync', sessions, health: healthLog })
+  }).then(r=>r.json())
+    .then(d=>showToast(d.status==='ok' ? '✓ Synced to Google Sheets' : '⚠ Sync error: '+d.message))
+    .catch(()=>showToast('⚠ Could not reach Sheets — check URL'));
+}
+
 // ── AUTO-BACKUP ───────────────────────────────────────────────────────────────
-// Data is always saved to localStorage automatically after every set/action.
-// File download only happens when user taps "Export Backup" in the Health tab.
-// This avoids iOS prompting "where to save" after every workout.
 function autoBackup() {
-  // localStorage is already saved via saveSession() — just confirm with a toast
+  // Data is always in localStorage. Also push to Sheets if configured.
+  const url = getSheetsUrl();
+  if(url && currentSessionId && sessions[currentSessionId]) {
+    syncSessionToSheets(currentSessionId, sessions[currentSessionId]);
+  }
   showToast('Workout saved ✓');
 }
 
@@ -924,8 +1155,8 @@ function closeAddExercise() { closeOverlay('add-ex-overlay'); document.getElemen
 function saveNewExercise() {
   const name = document.getElementById('ex-name-input').value.trim();
   if(!name) return;
-  const prev = getLastWeights(name);
-  currentSession.exercises.push({ name, sets: Array.from({length:4},()=>({weight:prev.weight,reps:prev.reps,done:false})) });
+  const prevSets = getLastSets(name);
+  currentSession.exercises.push({ name, sets: prevSets });
   saveSession();
   closeAddExercise();
   renderExercises();
@@ -1138,7 +1369,8 @@ function exportData() {
     exportedAt: new Date().toISOString(),
     app: 'sidsgym',
     sessions: sessions,
-    health: healthLog
+    health: healthLog,
+    library: library
   };
   const json = JSON.stringify(payload, null, 2);
   const blob = new Blob([json], {type: 'application/json'});
@@ -1162,7 +1394,7 @@ function importData(event) {
         showImportStatus('⚠ Not a valid Sid\'s Gym backup file.', true);
         return;
       }
-      // Merge: imported data fills gaps, existing newer data wins
+      // Merge sessions and health
       let addedSessions = 0, addedHealth = 0;
       Object.entries(data.sessions || {}).forEach(([k, v]) => {
         if (!sessions[k]) { sessions[k] = v; addedSessions++; }
@@ -1170,6 +1402,13 @@ function importData(event) {
       Object.entries(data.health || {}).forEach(([k, v]) => {
         if (!healthLog[k]) { healthLog[k] = v; addedHealth++; }
       });
+      // Restore library if present
+      if (data.library) {
+        if (data.library.upper) library.upper = data.library.upper;
+        if (data.library.lower) library.lower = data.library.lower;
+        if (data.library.full)  library.full  = data.library.full;
+        saveLibrary();
+      }
       save(SESSIONS_KEY, sessions);
       save(HEALTH_KEY, healthLog);
       updateStats();
@@ -1189,6 +1428,87 @@ function showImportStatus(msg, isError=false) {
   el.style.color = isError ? 'var(--red)' : 'var(--accent)';
   el.style.display = 'block';
   setTimeout(() => el.style.display='none', 4000);
+}
+
+// ── LIBRARY ───────────────────────────────────────────────────────────────────
+function renderLibrary() {
+  const colors = { upper:'in-list-blue', lower:'in-list-orange', full:'in-list' };
+  ['upper','lower','full'].forEach(type => {
+    // Active list
+    const container = document.getElementById('lib-'+type+'-list');
+    const exs = library[type];
+    container.innerHTML = '';
+    exs.forEach((name, i) => {
+      const row = document.createElement('div');
+      row.className = 'lib-ex-row';
+      row.innerHTML = `
+        <div class="lib-ex-name">${name}</div>
+        <button class="lib-move-btn" id="lib-up-${type}-${i}" ${i===0?'disabled':''}>▲</button>
+        <button class="lib-move-btn" id="lib-dn-${type}-${i}" ${i===exs.length-1?'disabled':''}>▼</button>
+        <button class="lib-del-btn" id="lib-del-${type}-${i}" title="Remove">✕</button>`;
+      row.querySelector('#lib-up-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libMoveEx(type, i, -1); });
+      row.querySelector('#lib-dn-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libMoveEx(type, i,  1); });
+      row.querySelector('#lib-del-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libRemoveEx(type, i); });
+      container.appendChild(row);
+    });
+
+    // Bank pills — highlight ones already in active list
+    const bankContainer = document.getElementById('bank-'+type);
+    bankContainer.innerHTML = '';
+    EXERCISE_BANK[type].forEach(name => {
+      const inList = library[type].includes(name);
+      const pill = document.createElement('button');
+      pill.className = 'bank-pill' + (inList ? ' '+colors[type] : '');
+      pill.textContent = (inList ? '✓ ' : '+ ') + name;
+      pill.addEventListener('click', () => libToggleBankEx(type, name));
+      bankContainer.appendChild(pill);
+    });
+  });
+}
+
+function libToggleBankEx(type, name) {
+  if(library[type].includes(name)) {
+    // Remove from active list
+    if(library[type].length <= 1) { showToast('Need at least 1 exercise'); return; }
+    library[type] = library[type].filter(n => n !== name);
+    showToast('Removed from ' + TEMPLATES[type].label);
+  } else {
+    // Add to active list
+    library[type].push(name);
+    showToast('Added to ' + TEMPLATES[type].label);
+  }
+  saveLibrary();
+  renderLibrary();
+}
+
+function libMoveEx(type, i, dir) {
+  const exs = library[type];
+  const ni = i + dir;
+  if(ni < 0 || ni >= exs.length) return;
+  [exs[i], exs[ni]] = [exs[ni], exs[i]];
+  saveLibrary();
+  renderLibrary();
+  showToast('Exercise moved');
+}
+
+function libRemoveEx(type, i) {
+  if(library[type].length <= 1) { showToast('Need at least 1 exercise'); return; }
+  library[type].splice(i, 1);
+  saveLibrary();
+  renderLibrary();
+  showToast('Exercise removed');
+}
+
+function libAddEx(type) {
+  const input = document.getElementById('lib-'+type+'-input');
+  const name = input.value.trim();
+  if(!name) return;
+  if(library[type].includes(name)) { showToast('Already in list'); return; }
+  library[type].push(name);
+  saveLibrary();
+  input.value = '';
+  renderLibrary();
+  showToast('Exercise added to ' + TEMPLATES[type].label);
 }
 
 // ── HEALTH LOG ────────────────────────────────────────────────────────────────
