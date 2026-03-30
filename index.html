@@ -96,7 +96,10 @@ body{display:flex;flex-direction:column;}
 .ex-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:opacity 0.2s;}
 .ex-card.dragging{opacity:0.5;}
 .ex-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;}
-.drag-handle{color:var(--text3);font-size:18px;cursor:grab;padding:4px 2px;touch-action:none;flex-shrink:0;}
+.move-btns{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
+.move-btn{background:var(--surf3);border:none;border-radius:4px;color:var(--text3);font-size:13px;width:24px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;}
+.move-btn:active{background:var(--border2);color:var(--text);}
+.move-btn:disabled{opacity:0.2;pointer-events:none;}
 .ex-info{flex:1;min-width:0;}
 .ex-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ex-meta{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:2px;}
@@ -434,16 +437,36 @@ function save(k,v){localStorage.setItem(k,JSON.stringify(v));}
 // ── STORAGE KEYS — permanent, version-stable names all future app versions must use ──
 const SESSIONS_KEY = 'sidsgym_sessions';
 const HEALTH_KEY   = 'sidsgym_health';
-const DATA_SCHEMA  = 1; // bump this if data shape changes; used for future migrations
+const DATA_SCHEMA  = 2; // v2: sessions keyed by unique ID, each has a .date field
+
+// sessions is now an object keyed by unique session ID (timestamp string)
+// Each session has: { id, date (YYYY-MM-DD), type, startedAt, finishedAt, duration, exercises/cardio }
+// health is still keyed by YYYY-MM-DD (one health entry per day is fine)
 
 let sessions  = load(SESSIONS_KEY, {});
 let healthLog = load(HEALTH_KEY, {});
+
+// Migrate v1 data (keyed by date) to v2 (keyed by session ID) transparently
+(function migrateV1() {
+  let migrated = false;
+  Object.entries(sessions).forEach(([k, s]) => {
+    // v1 keys are YYYY-MM-DD dates; v2 keys are numeric timestamp strings
+    if (/^\d{4}-\d{2}-\d{2}$/.test(k)) {
+      const id = String(s.startedAt || Date.now());
+      sessions[id] = { ...s, id, date: k };
+      delete sessions[k];
+      migrated = true;
+    }
+  });
+  if (migrated) save(SESSIONS_KEY, sessions);
+})();
 let currentType = 'upper';
 let workoutStarted = false;
 let workoutStartTime = null;
 let workoutTimerInterval = null;
 let currentSession = null;
-let currentDateKey = null;
+let currentSessionId = null; // unique ID for this session
+let currentDateKey = null;   // YYYY-MM-DD, kept for health log
 
 // Phase timers
 const PHASE_DUR = 5 * 60;
@@ -517,13 +540,19 @@ function updatePace() {
 }
 
 // ── SESSION INIT ──────────────────────────────────────────────────────────────
+// Session keys are unique per session: "YYYY-MM-DD_timestamp"
+// This allows multiple sessions per day, each counted independently.
 function dateKey(d){ return new Date(d).toISOString().slice(0,10); }
 function todayKey(){ return dateKey(new Date()); }
+function makeSessionKey(type){ return dateKey(new Date()) + '_' + Date.now() + '_' + type; }
+function sessionDate(k){ return k.slice(0,10); } // extract YYYY-MM-DD from key
 
 function getLastWeights(exName) {
-  const keys = Object.keys(sessions).sort().reverse();
-  for(const k of keys) {
-    const s = sessions[k];
+  // Only look at FINISHED sessions, sorted most recent first
+  const sorted = Object.values(sessions)
+    .filter(s => s.startedAt && s.finishedAt)
+    .sort((a,b) => b.finishedAt - a.finishedAt);
+  for(const s of sorted) {
     if(!s.exercises) continue;
     const ex = s.exercises.find(e=>e.name===exName);
     if(ex && ex.sets?.length) {
@@ -549,7 +578,8 @@ function makeSession(type) {
 }
 
 function startWorkout() {
-  currentDateKey = todayKey();
+  currentSessionId = makeSessionKey(currentType); // unique key per session
+  currentDateKey = todayKey(); // date only, for health log
   currentSession = makeSession(currentType);
   workoutStarted = true;
   workoutStartTime = Date.now();
@@ -557,7 +587,6 @@ function startWorkout() {
   document.getElementById('workout-content').style.display = 'block';
   document.querySelector('.type-bar').style.pointerEvents = 'none';
   document.querySelector('.type-bar').style.opacity = '0.5';
-  // Show correct view
   const isCardio = currentType === 'cardio';
   document.getElementById('strength-view').style.display = isCardio ? 'none' : 'block';
   document.getElementById('cardio-view').style.display = isCardio ? 'block' : 'none';
@@ -611,6 +640,13 @@ function togglePhase(name) {
 // ── RENDER EXERCISES ─────────────────────────────────────────────────────────
 function renderExercises() {
   const list = document.getElementById('ex-list');
+  const total = currentSession.exercises.length;
+  // Remember open panels by exercise NAME (indices change when reordering)
+  const openNames = new Set();
+  document.querySelectorAll('.ex-body.open').forEach(el => {
+    const idx = parseInt(el.id.replace('ex-body-',''));
+    if(currentSession.exercises[idx]) openNames.add(currentSession.exercises[idx].name);
+  });
   list.innerHTML = '';
   currentSession.exercises.forEach((ex, ei) => {
     const card = document.createElement('div');
@@ -619,39 +655,69 @@ function renderExercises() {
     const doneSets = ex.sets.filter(s=>s.done).length;
     const allDone = doneSets === ex.sets.length;
     card.innerHTML = `
-      <div class="ex-header" onclick="toggleEx(${ei},this)">
-        <div class="drag-handle" data-ei="${ei}">⠿</div>
-        <div class="ex-info">
-          <div class="ex-name" style="${allDone?'color:var(--accent)':''}">${allDone?'✓ ':''}${ex.name}</div>
-          <div class="ex-meta">${doneSets}/${ex.sets.length} sets · ${ex.sets.reduce((a,s)=>a+(s.done?s.weight*s.reps:0),0).toLocaleString()} lbs</div>
+      <div style="display:flex;align-items:stretch;">
+        <div style="display:flex;flex-direction:column;gap:3px;padding:12px 6px 12px 10px;flex-shrink:0;justify-content:center;">
+          <button class="move-btn" id="mv-up-${ei}" ${ei===0?'disabled':''}>▲</button>
+          <button class="move-btn" id="mv-dn-${ei}" ${ei===total-1?'disabled':''}>▼</button>
         </div>
-        <div class="ex-chevron" id="chev-${ei}">›</div>
-      </div>
-      <div class="ex-body" id="ex-body-${ei}">
-        <div class="sets-header">
-          <div class="sets-col-label">#</div>
-          <div class="sets-col-label">LBS</div>
-          <div class="sets-col-label">REPS</div>
-          <div></div>
+        <div style="flex:1;min-width:0;">
+          <div class="ex-header" id="ex-hdr-${ei}">
+            <div class="ex-info">
+              <div class="ex-name" style="${allDone?'color:var(--accent)':''}">${allDone?'✓ ':''}${ex.name}</div>
+              <div class="ex-meta">${doneSets}/${ex.sets.length} sets · ${ex.sets.reduce((a,s)=>a+(s.done?s.weight*s.reps:0),0).toLocaleString()} lbs</div>
+            </div>
+            <div class="ex-chevron" id="chev-${ei}">›</div>
+          </div>
+          <div class="ex-body" id="ex-body-${ei}">
+            <div class="sets-header">
+              <div class="sets-col-label">#</div>
+              <div class="sets-col-label">LBS</div>
+              <div class="sets-col-label">REPS</div>
+              <div></div>
+            </div>
+            ${ex.sets.map((s,si)=>`
+              <div class="set-row" id="set-${ei}-${si}">
+                <div class="set-num">${si+1}</div>
+                <div class="set-val ${s.done?'done-val':''}" id="wt-${ei}-${si}">${s.weight}</div>
+                <div class="set-val ${s.done?'done-val':''}" id="rp-${ei}-${si}">${s.reps}</div>
+                <div class="set-check ${s.done?'done':''}" id="chk-${ei}-${si}"></div>
+              </div>`).join('')}
+            <button class="add-set-btn" id="addset-${ei}">+ Add Set</button>
+          </div>
         </div>
-        ${ex.sets.map((s,si)=>`
-          <div class="set-row" id="set-${ei}-${si}">
-            <div class="set-num">${si+1}</div>
-            <div class="set-val ${s.done?'done-val':''}" onclick="openDrum(${ei},${si},'weight')">${s.weight}</div>
-            <div class="set-val ${s.done?'done-val':''}" onclick="openDrum(${ei},${si},'reps')">${s.reps}</div>
-            <div class="set-check ${s.done?'done':''}" onclick="toggleSet(${ei},${si})"></div>
-          </div>`).join('')}
-        <button class="add-set-btn" onclick="addSet(${ei})">+ Add Set</button>
       </div>`;
-    // Drag setup
-    const handle = card.querySelector('.drag-handle');
-    handle.addEventListener('touchstart', e=>onDragStart(e,ei), {passive:true});
     list.appendChild(card);
+
+    // ── Attach events via addEventListener (NOT inline onclick) ──────────────
+    // Move buttons — stopPropagation prevents any bubbling to the header
+    const upBtn = card.querySelector('#mv-up-'+ei);
+    const dnBtn = card.querySelector('#mv-dn-'+ei);
+    upBtn.addEventListener('click', e => { e.stopPropagation(); moveEx(ei, -1); });
+    dnBtn.addEventListener('click', e => { e.stopPropagation(); moveEx(ei,  1); });
+
+    // Header toggle — only toggles, doesn't move
+    card.querySelector('#ex-hdr-'+ei).addEventListener('click', () => toggleEx(ei));
+
+    // Set checkboxes, weight/rep taps, add set
+    ex.sets.forEach((_s, si) => {
+      card.querySelector('#wt-'+ei+'-'+si).addEventListener('click', () => openDrum(ei, si, 'weight'));
+      card.querySelector('#rp-'+ei+'-'+si).addEventListener('click', () => openDrum(ei, si, 'reps'));
+      card.querySelector('#chk-'+ei+'-'+si).addEventListener('click', () => toggleSet(ei, si));
+    });
+    card.querySelector('#addset-'+ei).addEventListener('click', () => addSet(ei));
+  });
+
+  // Restore open panels by name
+  currentSession.exercises.forEach((ex, i) => {
+    if(openNames.has(ex.name)) {
+      const b = document.getElementById('ex-body-'+i); if(b) b.classList.add('open');
+      const c = document.getElementById('chev-'+i); if(c) c.classList.add('open');
+    }
   });
   updateProgress();
 }
 
-function toggleEx(ei, headerEl) {
+function toggleEx(ei) {
   const body = document.getElementById('ex-body-'+ei);
   const chev = document.getElementById('chev-'+ei);
   const open = body.classList.toggle('open');
@@ -669,13 +735,11 @@ function addSet(ei) {
   const ex = currentSession.exercises[ei];
   const last = ex.sets[ex.sets.length-1];
   ex.sets.push({weight:last.weight, reps:last.reps, done:false});
+  // Temporarily mark this panel open in the DOM so renderExercises preserves it
+  const body = document.getElementById('ex-body-'+ei);
+  if(body) body.classList.add('open');
   saveSession();
   renderExercises();
-  setTimeout(()=>{
-    const body = document.getElementById('ex-body-'+ei);
-    body.classList.add('open');
-    document.getElementById('chev-'+ei).classList.add('open');
-  },10);
 }
 
 function updateProgress() {
@@ -688,8 +752,10 @@ function updateProgress() {
 }
 
 function saveSession() {
-  if(currentDateKey && currentSession) {
-    sessions[currentDateKey] = currentSession;
+  if(currentSessionId && currentSession) {
+    // Always stamp the date so history display works
+    currentSession.date = dateKey(new Date(currentSession.startedAt || Date.now()));
+    sessions[currentSessionId] = currentSession;
     save(SESSIONS_KEY, sessions);
     updateStats();
   }
@@ -727,6 +793,7 @@ function finishWorkout() {
 function showMetricsPrompt() { showOverlay('metrics-overlay'); }
 function skipMetrics() { closeOverlay('metrics-overlay'); resetTodayUI(); }
 function saveMetrics() {
+  const todayDate = todayKey(); // health metrics are per-day, not per-session
   const m = {
     rhr: document.getElementById('m-rhr').value||null,
     hrv: document.getElementById('m-hrv').value||null,
@@ -734,9 +801,9 @@ function saveMetrics() {
     vo2: document.getElementById('m-vo2').value||null,
     sleep: document.getElementById('m-sleep').value||null,
     bw: document.getElementById('m-bw').value||null,
-    date: currentDateKey
+    date: todayDate
   };
-  healthLog[currentDateKey] = m;
+  healthLog[todayDate] = m;
   save(HEALTH_KEY, healthLog);
   ['m-rhr','m-hrv','m-recovery','m-vo2','m-sleep','m-bw'].forEach(id=>document.getElementById(id).value='');
   closeOverlay('metrics-overlay');
@@ -762,34 +829,18 @@ function resetTodayUI() {
   cardioSubType='run'; cardioEffort='';
   ['run','bike','elliptical','swim','row','other'].forEach(s=>{ const el=document.getElementById('csub-'+s); if(el) el.className='cardio-sub-btn'+(s==='run'?' active':''); });
   ['easy','moderate','tempo','hard','intervals'].forEach(x=>{ const el=document.getElementById('eff-'+x); if(el) el.className='effort-btn'; });
-  currentSession=null; currentDateKey=null; workoutStarted=false;
+  currentSession=null; currentSessionId=null; currentDateKey=null; workoutStarted=false;
   updateStats();
   setTimeout(autoBackup, 600);
 }
 
 // ── AUTO-BACKUP ───────────────────────────────────────────────────────────────
-// Fires automatically after every finished workout (after metrics saved or skipped).
-// Overwrites the previous backup — always one clean rolling file named sidsgym_backup.json.
-// Future app versions load from localStorage keys sidsgym_sessions + sidsgym_health;
-// this file is just a safety net in case localStorage is cleared.
+// Data is always saved to localStorage automatically after every set/action.
+// File download only happens when user taps "Export Backup" in the Health tab.
+// This avoids iOS prompting "where to save" after every workout.
 function autoBackup() {
-  const payload = {
-    schema: DATA_SCHEMA,
-    exportedAt: new Date().toISOString(),
-    app: 'sidsgym',
-    sessions: sessions,
-    health: healthLog
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = 'sidsgym_backup.json'; // fixed filename — iOS replaces the old one
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Backup saved — store in iCloud Drive');
+  // localStorage is already saved via saveSession() — just confirm with a toast
+  showToast('Workout saved ✓');
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────
@@ -880,46 +931,14 @@ function saveNewExercise() {
   renderExercises();
 }
 
-// ── DRAG TO REORDER ───────────────────────────────────────────────────────────
-let touchY=0, dragEl=null, dragEi=-1, placeholder=null;
-function onDragStart(e, ei) {
-  dragEi = ei;
-  touchY = e.touches[0].clientY;
-  dragEl = document.querySelector(`.ex-card[data-ei="${ei}"]`);
-  dragEl.classList.add('dragging');
-  const move = ev => {
-    const dy = ev.touches[0].clientY - touchY;
-    touchY = ev.touches[0].clientY;
-    const list = document.getElementById('ex-list');
-    const cards = [...list.querySelectorAll('.ex-card:not(.dragging)')];
-    const draggingRect = dragEl.getBoundingClientRect();
-    const midY = draggingRect.top + draggingRect.height/2;
-    let newIdx = currentSession.exercises.length;
-    for(let i=0;i<cards.length;i++){
-      const r=cards[i].getBoundingClientRect();
-      if(midY < r.top + r.height/2){newIdx=parseInt(cards[i].dataset.ei);break;}
-    }
-    if(newIdx!==dragEi){
-      const exs = currentSession.exercises;
-      const [item] = exs.splice(dragEi,1);
-      const insertAt = newIdx>dragEi?newIdx-1:newIdx;
-      exs.splice(insertAt,0,item);
-      dragEi = insertAt;
-      renderExercises();
-      dragEl = document.querySelector(`.ex-card[data-ei="${dragEi}"]`);
-      dragEl.classList.add('dragging');
-    }
-  };
-  const end = () => {
-    dragEl?.classList.remove('dragging');
-    dragEl=null; dragEi=-1;
-    saveSession();
-    renderExercises();
-    document.removeEventListener('touchmove',move);
-    document.removeEventListener('touchend',end);
-  };
-  document.addEventListener('touchmove',move,{passive:true});
-  document.addEventListener('touchend',end);
+// ── MOVE EXERCISE UP / DOWN ───────────────────────────────────────────────────
+function moveEx(ei, dir) {
+  const exs = currentSession.exercises;
+  const newIdx = ei + dir;
+  if(newIdx < 0 || newIdx >= exs.length) return;
+  [exs[ei], exs[newIdx]] = [exs[newIdx], exs[ei]];
+  saveSession();
+  renderExercises();
 }
 
 // ── OVERLAY HELPERS ───────────────────────────────────────────────────────────
@@ -928,32 +947,56 @@ function closeOverlay(id){ document.getElementById(id).classList.remove('show');
 
 // ── STATS ─────────────────────────────────────────────────────────────────────
 function updateStats() {
+  const allFinished = Object.values(sessions).filter(s=>s.finishedAt);
+
+  // Streak: count consecutive days (any direction) that have at least one finished session
+  const finishedDates = new Set(allFinished.map(s=>dateKey(new Date(s.finishedAt))));
   let streak=0;
-  const d = new Date(); d.setHours(0,0,0,0);
+  const d=new Date(); d.setHours(0,0,0,0);
   for(let i=0;i<365;i++){
     const k=dateKey(new Date(d.getTime()-i*86400000));
-    if(sessions[k]?.finishedAt) streak++;
+    if(finishedDates.has(k)) streak++;
     else if(i>0) break;
   }
   document.getElementById('s-streak').textContent=streak;
+
+  // This month: count all finished sessions this calendar month
   const now=new Date(); const yr=now.getFullYear(), mo=now.getMonth();
-  let mc=0;
-  for(let day=1;day<=31;day++){const dt=new Date(yr,mo,day);if(dt.getMonth()!==mo)break;if(sessions[dateKey(dt)]?.finishedAt)mc++;}
+  const mc=allFinished.filter(s=>{const d2=new Date(s.finishedAt);return d2.getFullYear()===yr&&d2.getMonth()===mo;}).length;
   document.getElementById('s-month').textContent=mc;
+
+  // This week volume: sum lbs across all strength sessions this week
   const ws=new Date(); ws.setHours(0,0,0,0); ws.setDate(ws.getDate()-ws.getDay());
+  const we=new Date(ws); we.setDate(we.getDate()+7);
   let wv=0;
-  for(let i=0;i<7;i++){const d2=new Date(ws);d2.setDate(d2.getDate()+i);const s=sessions[dateKey(d2)];if(s)wv+=s.exercises?.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0)||0;}
+  allFinished.forEach(s=>{
+    const ft=s.finishedAt;
+    if(ft>=ws.getTime()&&ft<we.getTime()){
+      wv+=s.exercises?.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0)||0;
+    }
+  });
   document.getElementById('s-vol').textContent=wv>999?(wv/1000).toFixed(1)+'k':wv;
 }
 
 // ── HISTORY ───────────────────────────────────────────────────────────────────
+function sessionDisplayDate(s) {
+  // Get YYYY-MM-DD for display — works for both old and new session formats
+  if(s.date) return s.date;
+  if(s.startedAt) return dateKey(new Date(s.startedAt));
+  return null;
+}
+
 function renderHistory() {
   const list = document.getElementById('history-list');
   const entries = Object.entries(sessions).filter(([,s])=>s.finishedAt).sort((a,b)=>b[1].finishedAt-a[1].finishedAt);
   if(!entries.length){list.innerHTML='<div class="empty">No sessions yet.</div>';return;}
   list.innerHTML = entries.map(([k,s])=>{
     const dur = s.duration ? Math.round(s.duration/60) : null;
-    const hl = healthLog[k];
+    const dateStr = sessionDisplayDate(s);
+    const hl = dateStr ? healthLog[dateStr] : null;
+    const displayDate = dateStr
+      ? new Date(dateStr+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric',year:'numeric'})
+      : '—';
     const metricHtml = hl ? `<div class="hist-metrics">${[
       hl.rhr?`<div class="metric-pill">RHR <b>${hl.rhr}</b> bpm</div>`:'',
       hl.hrv?`<div class="metric-pill">HRV <b>${hl.hrv}</b> ms</div>`:'',
@@ -970,7 +1013,7 @@ function renderHistory() {
       return `<div class="hist-card" id="hcard-${k}">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
-            <div class="hist-date">${new Date(k+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric',year:'numeric'})}</div>
+            <div class="hist-date">${displayDate}</div>
             <div class="hist-type" style="color:var(--green)">${subEmoji} ${subLabel}</div>
           </div>
           <button id="del-btn-${k}" onclick="confirmDelete('${k}')" style="background:none;border:none;color:var(--text3);font-size:18px;padding:4px 6px;cursor:pointer;line-height:1;flex-shrink:0;">✕</button>
@@ -1003,7 +1046,7 @@ function renderHistory() {
     return `<div class="hist-card" id="hcard-${k}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div>
-          <div class="hist-date">${new Date(k+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric',year:'numeric'})}</div>
+          <div class="hist-date">${displayDate}</div>
           <div class="hist-type" style="color:${typeColor}">${TEMPLATES[s.type]?.label||s.type}</div>
         </div>
         <button id="del-btn-${k}" onclick="confirmDelete('${k}')" style="background:none;border:none;color:var(--text3);font-size:18px;padding:4px 6px;cursor:pointer;line-height:1;flex-shrink:0;">✕</button>
@@ -1049,21 +1092,31 @@ function deleteSession(k) {
 // ── TRENDS ────────────────────────────────────────────────────────────────────
 let chartInstances = {};
 function renderTrends() {
+  const allDone = Object.values(sessions).filter(s=>s.finishedAt);
   const weekLabels=[], sessionData=[], volData=[];
   for(let w=7;w>=0;w--){
     const ws=new Date(); ws.setHours(0,0,0,0); ws.setDate(ws.getDate()-ws.getDay()-w*7);
-    let sc=0,wv=0;
-    for(let i=0;i<7;i++){const d2=new Date(ws);d2.setDate(d2.getDate()+i);const s=sessions[dateKey(d2)];if(s?.finishedAt){sc++;wv+=s.exercises?.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0)||0;}}
+    const we=new Date(ws); we.setDate(we.getDate()+7);
+    const wsStr=dateKey(ws), weStr=dateKey(we);
+    let sc=0, wv=0;
+    allDone.forEach(s=>{
+      const sd = sessionDisplayDate(s)||'';
+      if(sd>=wsStr && sd<weStr){
+        sc++;
+        wv+=s.exercises?.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0)||0;
+      }
+    });
     weekLabels.push(ws.toLocaleDateString('en-US',{month:'short',day:'numeric'}));
     sessionData.push(sc); volData.push(Math.round(wv));
   }
-  const chartCfg=(data,color,max)=>({type:'bar',data:{labels:weekLabels,datasets:[{data,backgroundColor:color+'33',borderColor:color,borderWidth:1.5,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max,ticks:{color:'#545c66',font:{family:'DM Mono',size:9},stepSize:max<=4?1:undefined},grid:{color:'rgba(255,255,255,0.04)'},border:{display:false}},x:{ticks:{color:'#545c66',font:{family:'DM Mono',size:8},maxRotation:40},grid:{display:false},border:{display:false}}}}});
+  const maxSessions = Math.max(4,...sessionData);
+  const chartCfg=(data,color,max)=>({type:'bar',data:{labels:weekLabels,datasets:[{data,backgroundColor:color+'33',borderColor:color,borderWidth:1.5,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max,ticks:{color:'#545c66',font:{family:'DM Mono',size:9},stepSize:max<=6?1:undefined},grid:{color:'rgba(255,255,255,0.04)'},border:{display:false}},x:{ticks:{color:'#545c66',font:{family:'DM Mono',size:8},maxRotation:40},grid:{display:false},border:{display:false}}}}});
   ['sessions-chart','vol-chart'].forEach(id=>{if(chartInstances[id]){chartInstances[id].destroy();}});
-  chartInstances['sessions-chart']=new Chart(document.getElementById('sessions-chart'),chartCfg(sessionData,'#c8f04a',4));
+  chartInstances['sessions-chart']=new Chart(document.getElementById('sessions-chart'),chartCfg(sessionData,'#c8f04a',maxSessions));
   chartInstances['vol-chart']=new Chart(document.getElementById('vol-chart'),chartCfg(volData,'#4a9cf0',Math.max(1,...volData)));
   // Best lifts
   const bests={};
-  Object.values(sessions).forEach(s=>s.exercises?.forEach(ex=>ex.sets.filter(st=>st.done&&st.weight>0).forEach(st=>{if(!bests[ex.name]||st.weight>bests[ex.name])bests[ex.name]=st.weight;})));
+  allDone.forEach(s=>s.exercises?.forEach(ex=>ex.sets.filter(st=>st.done&&st.weight>0).forEach(st=>{if(!bests[ex.name]||st.weight>bests[ex.name])bests[ex.name]=st.weight;})));
   const bl=document.getElementById('best-lifts');
   const entries=Object.entries(bests).sort((a,b)=>b[1]-a[1]);
   if(!entries.length){bl.innerHTML='<div style="font-size:12px;color:var(--text3);">Complete workouts to see your best lifts.</div>';return;}
@@ -1073,9 +1126,10 @@ function renderTrends() {
 
 // ── EXPORT / IMPORT ───────────────────────────────────────────────────────────
 // Storage contract for all future versions:
-//   localStorage key "sidsgym_sessions" — workout session objects keyed by YYYY-MM-DD
-//   localStorage key "sidsgym_health"   — health metric objects keyed by YYYY-MM-DD
-//   Export file shape: { schema, exportedAt, sessions, health }
+//   localStorage key "sidsgym_sessions" — session objects keyed by "YYYY-MM-DD_timestamp_type"
+//     (one key per session, supports multiple sessions per day)
+//   localStorage key "sidsgym_health"   — health metric objects keyed by "YYYY-MM-DD" (one per day)
+//   Export file shape: { schema, exportedAt, app, sessions, health }
 //   Future versions must read these same keys and handle schema migrations.
 
 function exportData() {
