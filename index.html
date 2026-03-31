@@ -202,18 +202,40 @@ body{display:flex;flex-direction:column;}
 .bank-pill.in-list{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
 .bank-pill.in-list-blue{border-color:var(--blue);color:var(--blue);background:var(--blue-dim);}
 .bank-pill.in-list-orange{border-color:var(--orange);color:var(--orange);background:var(--orange-dim);}
+/* CUSTOM METRICS */
+.cm-row{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surf);border:1px solid var(--border);border-radius:var(--rsm);margin-bottom:6px;}
+.cm-label{flex:1;font-size:13px;font-weight:600;color:var(--text);}
+.cm-unit{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;min-width:36px;}
+.cm-del{background:var(--red-dim);border:none;border-radius:4px;color:var(--red);font-size:13px;width:26px;height:26px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;}
+.cm-entry-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--rsm);overflow:hidden;margin-bottom:8px;}
+.cm-entry-header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;cursor:pointer;}
+.cm-entry-title{font-size:13px;font-weight:700;color:var(--text);}
+.cm-entry-latest{font-size:12px;font-family:'DM Mono',monospace;color:var(--accent);}
+.cm-entry-body{display:none;padding:0 12px 10px;}
+.cm-entry-body.open{display:block;}
+.cm-log-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);}
+.cm-log-row:last-child{border-bottom:none;}
+.cm-log-date{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);flex:1;}
+.cm-log-val{font-size:14px;font-weight:700;color:var(--text);}
+.cm-log-del{background:none;border:none;color:var(--text3);font-size:14px;cursor:pointer;padding:2px 4px;}
 </style>
 </head>
 <body>
 
 <div class="nav">
   <div class="nav-top">
-    <div class="nav-brand">SID'S GYM</div>
+    <div>
+      <div class="nav-brand">SID'S GYM</div>
+      <div style="font-size:9px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.06em;" id="nav-version"></div>
+    </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <div class="nav-timer" id="nav-timer">0:00</div>
       <button id="nav-pause-btn" onclick="toggleWorkoutPause()" style="display:none;background:var(--surf2);border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:14px;width:30px;height:30px;cursor:pointer;flex-shrink:0;padding:0;line-height:1;align-items:center;justify-content:center;">⏸</button>
     </div>
-    <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;text-align:right;" id="nav-date"></div>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;text-align:right;" id="nav-date"></div>
+      <button onclick="hardRefresh()" title="Refresh app" style="background:var(--surf2);border:1px solid var(--border2);border-radius:6px;color:var(--text3);font-size:14px;width:28px;height:28px;cursor:pointer;flex-shrink:0;padding:0;display:flex;align-items:center;justify-content:center;">↺</button>
+    </div>
   </div>
 </div>
 
@@ -393,6 +415,25 @@ body{display:flex;flex-direction:column;}
     <div id="import-status" style="font-size:11px;font-family:'DM Mono',monospace;color:var(--accent);margin-top:8px;display:none;"></div>
   </div>
 
+  <div class="sec-label" style="margin-bottom:8px;">CUSTOM METRICS</div>
+  <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:16px;">
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6;">Track any metric over time — body weight, sleep hours, mood, energy, blood pressure, etc. Add a variable once and log values whenever you want.</div>
+    <!-- Existing custom metric variables -->
+    <div id="cm-vars-list"></div>
+    <!-- Add new variable -->
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      <input id="cm-name-input" class="sheet-input" style="margin:0;flex:2;font-size:13px;padding:9px 10px;" placeholder="Metric name (e.g. Weight)" type="text">
+      <input id="cm-unit-input" class="sheet-input" style="margin:0;flex:1;font-size:13px;padding:9px 10px;" placeholder="Unit (e.g. lbs)" type="text">
+      <button onclick="cmAddVar()" style="padding:9px 14px;border-radius:var(--rsm);border:none;background:var(--accent-dim);color:var(--accent);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">Add</button>
+    </div>
+  </div>
+
+  <!-- Log entries per metric -->
+  <div id="cm-logs-section" style="display:none;margin-bottom:16px;">
+    <div class="sec-label" style="margin-bottom:8px;">METRIC HISTORY</div>
+    <div id="cm-logs-list"></div>
+  </div>
+
   <div class="sec-label" style="margin-bottom:10px;">METRICS LOG</div>
   <div id="health-list"><div class="empty">No health metrics logged yet.<br>You'll be prompted after each workout.</div></div>
 </div>
@@ -503,8 +544,10 @@ function save(k,v){localStorage.setItem(k,JSON.stringify(v));}
 // ── STORAGE KEYS — permanent, version-stable names all future app versions must use ──
 const SESSIONS_KEY = 'sidsgym_sessions';
 const HEALTH_KEY   = 'sidsgym_health';
-const LIBRARY_KEY  = 'sidsgym_library'; // user-editable exercise lists per workout type
-const DATA_SCHEMA  = 2;
+const LIBRARY_KEY  = 'sidsgym_library';
+const METRICS_KEY  = 'sidsgym_custom_metrics'; // { vars: [{id,name,unit}], logs: [{varId,date,value,ts}] }
+const DATA_SCHEMA  = 3;
+const APP_VERSION  = 'v3.0';
 
 // Default active lists — used only if no library exists yet in localStorage
 const DEFAULT_LIBRARY = {
@@ -544,9 +587,10 @@ const EXERCISE_BANK = {
   ]
 };
 
-let sessions  = load(SESSIONS_KEY, {});
-let healthLog = load(HEALTH_KEY, {});
-let library   = load(LIBRARY_KEY, JSON.parse(JSON.stringify(DEFAULT_LIBRARY)));
+let sessions    = load(SESSIONS_KEY, {});
+let healthLog   = load(HEALTH_KEY, {});
+let library     = load(LIBRARY_KEY, JSON.parse(JSON.stringify(DEFAULT_LIBRARY)));
+let customMetrics = load(METRICS_KEY, { vars: [], logs: [] });
 
 // TEMPLATES is built from the live library — always reflects latest user choices
 const TEMPLATES = {
@@ -605,7 +649,15 @@ let dragSrc = null, dragOver = null;
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 document.getElementById('nav-date').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+document.getElementById('nav-version').textContent = APP_VERSION;
 updateStats();
+
+function hardRefresh() {
+  if(workoutStarted) {
+    if(!confirm('Workout in progress — refresh anyway? Unsaved sets will be lost.')) return;
+  }
+  window.location.reload(true);
+}
 
 // ── PAGE NAV ─────────────────────────────────────────────────────────────────
 function showPage(id) {
@@ -1370,7 +1422,8 @@ function exportData() {
     app: 'sidsgym',
     sessions: sessions,
     health: healthLog,
-    library: library
+    library: library,
+    customMetrics: customMetrics
   };
   const json = JSON.stringify(payload, null, 2);
   const blob = new Blob([json], {type: 'application/json'});
@@ -1408,6 +1461,12 @@ function importData(event) {
         if (data.library.lower) library.lower = data.library.lower;
         if (data.library.full)  library.full  = data.library.full;
         saveLibrary();
+      }
+      // Restore custom metrics if present
+      if (data.customMetrics) {
+        if (data.customMetrics.vars) customMetrics.vars = data.customMetrics.vars;
+        if (data.customMetrics.logs) customMetrics.logs = data.customMetrics.logs;
+        saveCustomMetrics();
       }
       save(SESSIONS_KEY, sessions);
       save(HEALTH_KEY, healthLog);
@@ -1511,8 +1570,111 @@ function libAddEx(type) {
   showToast('Exercise added to ' + TEMPLATES[type].label);
 }
 
+// ── CUSTOM METRICS ────────────────────────────────────────────────────────────
+function saveCustomMetrics() { save(METRICS_KEY, customMetrics); }
+
+function cmAddVar() {
+  const name = document.getElementById('cm-name-input').value.trim();
+  const unit = document.getElementById('cm-unit-input').value.trim();
+  if(!name) { showToast('Enter a metric name'); return; }
+  if(customMetrics.vars.find(v=>v.name.toLowerCase()===name.toLowerCase())) { showToast('Already exists'); return; }
+  const id = 'cm_' + Date.now();
+  customMetrics.vars.push({ id, name, unit });
+  saveCustomMetrics();
+  document.getElementById('cm-name-input').value = '';
+  document.getElementById('cm-unit-input').value = '';
+  renderCustomMetrics();
+  showToast(name + ' added');
+}
+
+function cmRemoveVar(id) {
+  customMetrics.vars = customMetrics.vars.filter(v=>v.id!==id);
+  customMetrics.logs = customMetrics.logs.filter(l=>l.varId!==id);
+  saveCustomMetrics();
+  renderCustomMetrics();
+  showToast('Metric removed');
+}
+
+function cmLogValue(id) {
+  const v = customMetrics.vars.find(v=>v.id===id);
+  if(!v) return;
+  const input = document.getElementById('cm-val-'+id);
+  const val = parseFloat(input.value);
+  if(isNaN(val)) { showToast('Enter a number'); return; }
+  customMetrics.logs.push({ varId:id, date:todayKey(), value:val, ts:Date.now() });
+  saveCustomMetrics();
+  input.value = '';
+  renderCustomMetrics();
+  showToast(v.name + ' logged: ' + val + (v.unit?' '+v.unit:''));
+}
+
+function cmDeleteLog(ts) {
+  customMetrics.logs = customMetrics.logs.filter(l=>l.ts!==ts);
+  saveCustomMetrics();
+  renderCustomMetrics();
+}
+
+function renderCustomMetrics() {
+  const varsList = document.getElementById('cm-vars-list');
+  const logsSection = document.getElementById('cm-logs-section');
+  const logsList = document.getElementById('cm-logs-list');
+  if(!varsList) return;
+
+  if(!customMetrics.vars.length) {
+    varsList.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:4px 0 8px;">No metrics yet — add one below.</div>';
+    logsSection.style.display = 'none';
+    return;
+  }
+
+  // Vars list with inline log input
+  varsList.innerHTML = '';
+  customMetrics.vars.forEach(v => {
+    const lastLog = [...customMetrics.logs].filter(l=>l.varId===v.id).sort((a,b)=>b.ts-a.ts)[0];
+    const row = document.createElement('div');
+    row.className = 'cm-row';
+    row.innerHTML = `
+      <div style="flex:1;min-width:0;">
+        <div class="cm-label">${v.name}</div>
+        ${lastLog ? `<div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);margin-top:2px;">Last: <b style="color:var(--accent)">${lastLog.value}${v.unit?' '+v.unit:''}</b> on ${new Date(lastLog.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>` : '<div style="font-size:10px;color:var(--text3);">No entries yet</div>'}
+      </div>
+      <input id="cm-val-${v.id}" type="number" inputmode="decimal" placeholder="Value" style="background:var(--surf2);border:1px solid var(--border2);border-radius:6px;padding:7px 8px;font-size:14px;color:var(--text);font-family:'DM Mono',monospace;width:72px;text-align:center;">
+      <div class="cm-unit">${v.unit||''}</div>
+      <button onclick="cmLogValue('${v.id}')" style="background:var(--accent-dim);border:none;border-radius:4px;color:var(--accent);font-size:12px;font-weight:700;padding:0 10px;height:26px;cursor:pointer;flex-shrink:0;font-family:'Syne',sans-serif;">LOG</button>
+      <button class="cm-del" onclick="cmRemoveVar('${v.id}')">✕</button>`;
+    // Enter key logs value
+    row.querySelector('#cm-val-'+v.id).addEventListener('keydown', e=>{ if(e.key==='Enter') cmLogValue(v.id); });
+    varsList.appendChild(row);
+  });
+
+  // History per metric
+  logsSection.style.display = 'block';
+  logsList.innerHTML = '';
+  customMetrics.vars.forEach(v => {
+    const logs = [...customMetrics.logs].filter(l=>l.varId===v.id).sort((a,b)=>b.ts-a.ts);
+    if(!logs.length) return;
+    const card = document.createElement('div');
+    card.className = 'cm-entry-card';
+    const latest = logs[0];
+    card.innerHTML = `
+      <div class="cm-entry-header" onclick="this.nextElementSibling.classList.toggle('open')">
+        <div class="cm-entry-title">${v.name}</div>
+        <div class="cm-entry-latest">${latest.value}${v.unit?' '+v.unit:''}</div>
+      </div>
+      <div class="cm-entry-body">
+        ${logs.map(l=>`
+          <div class="cm-log-row">
+            <div class="cm-log-date">${new Date(l.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
+            <div class="cm-log-val">${l.value}${v.unit?' '+v.unit:''}</div>
+            <button class="cm-log-del" onclick="cmDeleteLog(${l.ts})">✕</button>
+          </div>`).join('')}
+      </div>`;
+    logsList.appendChild(card);
+  });
+}
+
 // ── HEALTH LOG ────────────────────────────────────────────────────────────────
 function renderHealth() {
+  renderCustomMetrics();
   const list=document.getElementById('health-list');
   const entries=Object.entries(healthLog).sort((a,b)=>b[0].localeCompare(a[0]));
   if(!entries.length){list.innerHTML='<div class="empty">No health metrics logged yet.<br>You\'ll be prompted after each workout.</div>';return;}
