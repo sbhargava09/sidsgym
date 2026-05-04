@@ -31,7 +31,7 @@ body{display:flex;flex-direction:column;}
 .nav-timer.active{display:block;}
 
 /* TABS */
-.tabs{display:grid;grid-template-columns:repeat(5,1fr);background:var(--surf);border-bottom:1px solid var(--border);flex-shrink:0;}
+.tabs{display:grid;grid-template-columns:repeat(6,1fr);background:var(--surf);border-bottom:1px solid var(--border);flex-shrink:0;}
 .tab{padding:11px 4px;text-align:center;font-size:11px;font-weight:700;color:var(--text3);cursor:pointer;letter-spacing:0.05em;border-bottom:2px solid transparent;transition:all 0.18s;user-select:none;}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
 
@@ -202,7 +202,30 @@ body{display:flex;flex-direction:column;}
 .bank-pill.in-list{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
 .bank-pill.in-list-blue{border-color:var(--blue);color:var(--blue);background:var(--blue-dim);}
 .bank-pill.in-list-orange{border-color:var(--orange);color:var(--orange);background:var(--orange-dim);}
-/* CUSTOM METRICS */
+/* MEASUREMENTS */
+.meas-diagram-wrap{position:relative;width:100%;max-width:340px;margin:0 auto 16px;}
+.meas-diagram-wrap svg{width:100%;height:auto;display:block;}
+.meas-hit{cursor:pointer;transition:opacity 0.15s;}
+.meas-hit:active{opacity:0.6;}
+.meas-section{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;}
+.meas-section-title{font-size:10px;font-family:'DM Mono',monospace;letter-spacing:0.07em;margin-bottom:10px;font-weight:700;}
+.meas-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.meas-card{background:var(--surf2);border:1px solid var(--border);border-radius:var(--rsm);padding:10px 12px;cursor:pointer;transition:border-color 0.15s;}
+.meas-card:active{border-color:var(--accent);}
+.meas-card-label{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.05em;margin-bottom:4px;}
+.meas-card-val{font-size:20px;font-weight:800;color:var(--text);line-height:1;}
+.meas-card-val.auto{color:var(--blue);}
+.meas-card-unit{font-size:10px;color:var(--text3);margin-top:2px;}
+.meas-card-date{font-size:9px;font-family:'DM Mono',monospace;color:var(--text3);margin-top:3px;}
+.meas-card.auto-calc{cursor:default;border-style:dashed;}
+.meas-history-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);}
+.meas-history-row:last-child{border-bottom:none;}
+/* Measurement input overlay */
+.meas-sheet{background:var(--surf);border-radius:20px 20px 0 0;width:100%;padding-bottom:max(20px,env(safe-area-inset-bottom));}
+.meas-input-wrap{padding:0 20px 4px;}
+.meas-big-input{background:var(--surf2);border:1px solid var(--border2);border-radius:var(--rsm);padding:14px 16px;font-size:28px;font-weight:700;color:var(--text);font-family:'DM Mono',monospace;width:100%;text-align:center;margin-bottom:8px;}
+.meas-big-input:focus{outline:none;border-color:var(--accent);}
+.meas-history-mini{max-height:160px;overflow-y:auto;margin:0 20px 12px;border:1px solid var(--border);border-radius:var(--rsm);padding:4px 12px;}
 .cm-row{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--surf);border:1px solid var(--border);border-radius:var(--rsm);margin-bottom:6px;}
 .cm-label{flex:1;font-size:13px;font-weight:600;color:var(--text);}
 .cm-unit{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;min-width:36px;}
@@ -244,6 +267,7 @@ body{display:flex;flex-direction:column;}
   <div class="tab" onclick="showPage('history')">LOG</div>
   <div class="tab" onclick="showPage('trends')">TRENDS</div>
   <div class="tab" onclick="showPage('health')">HEALTH</div>
+  <div class="tab" onclick="showPage('body')">BODY</div>
   <div class="tab" onclick="showPage('library')">LIBRARY</div>
 </div>
 
@@ -482,7 +506,88 @@ body{display:flex;flex-direction:column;}
   </div>
 </div>
 
+<!-- BODY / MEASUREMENTS -->
+<div class="page" id="page-body">
+
+  <!-- Height input (one-time, needed for BMI) -->
+  <div id="height-setup" style="display:none;background:var(--surf);border:1px solid var(--accent);border-radius:var(--r);padding:14px;margin-bottom:14px;">
+    <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Set your height for BMI calculation</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input id="height-ft" type="number" inputmode="numeric" placeholder="ft" style="background:var(--surf2);border:1px solid var(--border2);border-radius:6px;padding:10px;font-size:16px;color:var(--text);font-family:'DM Mono',monospace;width:64px;text-align:center;">
+      <input id="height-in" type="number" inputmode="numeric" placeholder="in" style="background:var(--surf2);border:1px solid var(--border2);border-radius:6px;padding:10px;font-size:16px;color:var(--text);font-family:'DM Mono',monospace;width:64px;text-align:center;">
+      <button onclick="saveHeight()" style="flex:1;padding:10px;border-radius:var(--rsm);border:none;background:var(--accent);color:#000;font-family:'Syne',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">Save</button>
+    </div>
+  </div>
+
+  <!-- Interactive body diagram -->
+  <div class="meas-diagram-wrap" id="body-diagram-wrap">
+    <!-- SVG injected by JS -->
+  </div>
+
+  <!-- Auto-calculated metrics strip -->
+  <div class="meas-section" style="margin-bottom:10px;">
+    <div class="meas-section-title" style="color:var(--blue);">⚡ AUTO-CALCULATED</div>
+    <div class="meas-grid">
+      <div class="meas-card auto-calc">
+        <div class="meas-card-label">BMI</div>
+        <div class="meas-card-val auto" id="disp-bmi">—</div>
+        <div class="meas-card-unit">kg/m²</div>
+      </div>
+      <div class="meas-card auto-calc">
+        <div class="meas-card-label">LEAN MASS</div>
+        <div class="meas-card-val auto" id="disp-lean">—</div>
+        <div class="meas-card-unit">lbs</div>
+      </div>
+      <div class="meas-card auto-calc" style="grid-column:1/-1;">
+        <div class="meas-card-label">WAIST-TO-HIP RATIO</div>
+        <div class="meas-card-val auto" id="disp-whr">—</div>
+        <div class="meas-card-unit">ideal &lt; 0.90 (men)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manual measurement sections -->
+  <div class="meas-section">
+    <div class="meas-section-title" style="color:var(--accent);">⚖ WEIGHT & COMPOSITION</div>
+    <div class="meas-grid" id="sect-composition"></div>
+  </div>
+  <div class="meas-section">
+    <div class="meas-section-title" style="color:var(--blue);">💪 UPPER BODY</div>
+    <div class="meas-grid" id="sect-upper"></div>
+  </div>
+  <div class="meas-section">
+    <div class="meas-section-title" style="color:var(--red);">📏 TORSO</div>
+    <div class="meas-grid" id="sect-torso"></div>
+  </div>
+  <div class="meas-section">
+    <div class="meas-section-title" style="color:var(--green);">🦵 LOWER BODY</div>
+    <div class="meas-grid" id="sect-lower"></div>
+  </div>
+</div>
+
 </div><!-- end scroll -->
+
+<!-- MEASUREMENT INPUT OVERLAY -->
+<div class="overlay" id="meas-overlay">
+  <div class="meas-sheet">
+    <div class="sheet-header">
+      <div>
+        <div style="font-size:15px;font-weight:700;" id="meas-overlay-title">Measurement</div>
+        <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px;" id="meas-overlay-sub"></div>
+      </div>
+      <div class="sheet-close" onclick="closeMeasOverlay()">✕</div>
+    </div>
+    <div class="meas-input-wrap">
+      <input class="meas-big-input" id="meas-val-input" type="number" inputmode="decimal" placeholder="0.0">
+      <button class="sheet-save-btn" onclick="saveMeasurement()">LOG MEASUREMENT</button>
+    </div>
+    <!-- Recent history for this metric -->
+    <div style="margin:12px 20px 0;">
+      <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.06em;margin-bottom:6px;">RECENT</div>
+      <div class="meas-history-mini" id="meas-history-mini"></div>
+    </div>
+  </div>
+</div>
 
 <!-- DRUM PICKER OVERLAY -->
 <div class="overlay" id="drum-overlay">
@@ -545,9 +650,10 @@ function save(k,v){localStorage.setItem(k,JSON.stringify(v));}
 const SESSIONS_KEY = 'sidsgym_sessions';
 const HEALTH_KEY   = 'sidsgym_health';
 const LIBRARY_KEY  = 'sidsgym_library';
-const METRICS_KEY  = 'sidsgym_custom_metrics'; // { vars: [{id,name,unit}], logs: [{varId,date,value,ts}] }
+const METRICS_KEY  = 'sidsgym_custom_metrics';
+const BODY_KEY     = 'sidsgym_body'; // { height:{ft,in}, measurements:{key:[{val,date,ts}]} }
 const DATA_SCHEMA  = 3;
-const APP_VERSION  = 'v3.0';
+const APP_VERSION  = 'v3.1';
 
 // Default active lists — used only if no library exists yet in localStorage
 const DEFAULT_LIBRARY = {
@@ -587,10 +693,11 @@ const EXERCISE_BANK = {
   ]
 };
 
-let sessions    = load(SESSIONS_KEY, {});
-let healthLog   = load(HEALTH_KEY, {});
-let library     = load(LIBRARY_KEY, JSON.parse(JSON.stringify(DEFAULT_LIBRARY)));
+let sessions      = load(SESSIONS_KEY, {});
+let healthLog     = load(HEALTH_KEY, {});
+let library       = load(LIBRARY_KEY, JSON.parse(JSON.stringify(DEFAULT_LIBRARY)));
 let customMetrics = load(METRICS_KEY, { vars: [], logs: [] });
+let bodyData      = load(BODY_KEY, { height: null, measurements: {} });
 
 // TEMPLATES is built from the live library — always reflects latest user choices
 const TEMPLATES = {
@@ -664,11 +771,12 @@ function showPage(id) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
-  const tabs = ['today','history','trends','health','library'];
+  const tabs = ['today','history','trends','health','body','library'];
   document.querySelectorAll('.tab')[tabs.indexOf(id)]?.classList.add('active');
   if(id==='history') renderHistory();
   if(id==='trends') renderTrends();
   if(id==='health') { renderHealth(); initHealthTab(); }
+  if(id==='body') renderBodyPage();
   if(id==='library') renderLibrary();
 }
 
@@ -1423,7 +1531,8 @@ function exportData() {
     sessions: sessions,
     health: healthLog,
     library: library,
-    customMetrics: customMetrics
+    customMetrics: customMetrics,
+    bodyData: bodyData
   };
   const json = JSON.stringify(payload, null, 2);
   const blob = new Blob([json], {type: 'application/json'});
@@ -1467,6 +1576,10 @@ function importData(event) {
         if (data.customMetrics.vars) customMetrics.vars = data.customMetrics.vars;
         if (data.customMetrics.logs) customMetrics.logs = data.customMetrics.logs;
         saveCustomMetrics();
+      }
+      if (data.bodyData) {
+        bodyData = data.bodyData;
+        saveBody();
       }
       save(SESSIONS_KEY, sessions);
       save(HEALTH_KEY, healthLog);
@@ -1570,7 +1683,265 @@ function libAddEx(type) {
   showToast('Exercise added to ' + TEMPLATES[type].label);
 }
 
-// ── CUSTOM METRICS ────────────────────────────────────────────────────────────
+// ── BODY MEASUREMENTS ─────────────────────────────────────────────────────────
+const MEAS_DEFS = [
+  // id, label, unit, section, color
+  { id:'weight',    label:'Body Weight',  unit:'lbs', section:'composition', color:'var(--accent)' },
+  { id:'bodyfat',   label:'Body Fat',     unit:'%',   section:'composition', color:'var(--accent)' },
+  { id:'chest',     label:'Chest',        unit:'in',  section:'upper',       color:'var(--blue)'   },
+  { id:'shoulders', label:'Shoulders',    unit:'in',  section:'upper',       color:'var(--blue)'   },
+  { id:'bicep',     label:'Bicep',        unit:'in',  section:'upper',       color:'var(--blue)'   },
+  { id:'forearm',   label:'Forearm',      unit:'in',  section:'upper',       color:'var(--blue)'   },
+  { id:'waist',     label:'Waist',        unit:'in',  section:'torso',       color:'var(--red)'    },
+  { id:'hips',      label:'Hips',         unit:'in',  section:'torso',       color:'var(--red)'    },
+  { id:'glutes',    label:'Glutes',       unit:'in',  section:'torso',       color:'var(--red)'    },
+  { id:'thigh',     label:'Thigh',        unit:'in',  section:'lower',       color:'var(--green)'  },
+  { id:'calf',      label:'Calf',         unit:'in',  section:'lower',       color:'var(--green)'  },
+];
+
+function saveBody() { save(BODY_KEY, bodyData); }
+
+function saveHeight() {
+  const ft = parseInt(document.getElementById('height-ft').value)||0;
+  const ins = parseInt(document.getElementById('height-in').value)||0;
+  if(!ft && !ins) { showToast('Enter your height'); return; }
+  bodyData.height = { ft, in: ins };
+  saveBody();
+  document.getElementById('height-setup').style.display='none';
+  renderBodyPage();
+  showToast('Height saved');
+}
+
+function getLatest(id) {
+  const entries = bodyData.measurements[id];
+  if(!entries || !entries.length) return null;
+  return [...entries].sort((a,b)=>b.ts-a.ts)[0];
+}
+
+function calcBMI() {
+  if(!bodyData.height) return null;
+  const latest = getLatest('weight');
+  if(!latest) return null;
+  const totalIn = (bodyData.height.ft*12) + bodyData.height.in;
+  const bmi = (latest.val * 703) / (totalIn * totalIn);
+  return bmi.toFixed(1);
+}
+
+function calcLeanMass() {
+  const w = getLatest('weight');
+  const bf = getLatest('bodyfat');
+  if(!w || !bf) return null;
+  return ((w.val * (1 - bf.val/100))).toFixed(1);
+}
+
+function calcWHR() {
+  const wst = getLatest('waist');
+  const hip = getLatest('hips');
+  if(!wst || !hip) return null;
+  return (wst.val / hip.val).toFixed(2);
+}
+
+// Current measurement being entered
+let activeMeasId = null;
+
+function openMeasOverlay(id) {
+  const def = MEAS_DEFS.find(d=>d.id===id);
+  if(!def) return;
+  activeMeasId = id;
+  document.getElementById('meas-overlay-title').textContent = def.label;
+  document.getElementById('meas-overlay-sub').textContent = def.unit;
+  document.getElementById('meas-val-input').value = '';
+  // Show history
+  const entries = (bodyData.measurements[id]||[]).sort((a,b)=>b.ts-a.ts).slice(0,6);
+  const mini = document.getElementById('meas-history-mini');
+  if(!entries.length) {
+    mini.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0;">No entries yet</div>';
+  } else {
+    mini.innerHTML = entries.map(e=>`
+      <div class="meas-history-row">
+        <div style="font-size:11px;font-family:\'DM Mono\',monospace;color:var(--text3);">${new Date(e.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);">${e.val} <span style="font-size:10px;color:var(--text3);">${def.unit}</span></div>
+        <button onclick="deleteMeas('${id}',${e.ts})" style="background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:2px 6px;">✕</button>
+      </div>`).join('');
+  }
+  showOverlay('meas-overlay');
+  setTimeout(()=>document.getElementById('meas-val-input').focus(), 300);
+}
+
+function closeMeasOverlay() { closeOverlay('meas-overlay'); activeMeasId=null; }
+
+function saveMeasurement() {
+  if(!activeMeasId) return;
+  const val = parseFloat(document.getElementById('meas-val-input').value);
+  if(isNaN(val)||val<=0) { showToast('Enter a valid value'); return; }
+  if(!bodyData.measurements[activeMeasId]) bodyData.measurements[activeMeasId]=[];
+  bodyData.measurements[activeMeasId].push({ val, date:todayKey(), ts:Date.now() });
+  saveBody();
+  closeMeasOverlay();
+  renderBodyPage();
+  const def = MEAS_DEFS.find(d=>d.id===activeMeasId);
+  showToast((def?def.label:'Measurement')+' logged');
+}
+
+function deleteMeas(id, ts) {
+  bodyData.measurements[id] = (bodyData.measurements[id]||[]).filter(e=>e.ts!==ts);
+  saveBody();
+  closeMeasOverlay();
+  renderBodyPage();
+}
+
+function renderBodyPage() {
+  // Height prompt
+  const heightSetup = document.getElementById('height-setup');
+  heightSetup.style.display = bodyData.height ? 'none' : 'block';
+
+  // Auto-calculated
+  const bmi = calcBMI();
+  const lean = calcLeanMass();
+  const whr = calcWHR();
+  document.getElementById('disp-bmi').textContent = bmi || '—';
+  document.getElementById('disp-lean').textContent = lean ? lean+' lbs' : '—';
+  document.getElementById('disp-whr').textContent = whr || '—';
+
+  // Render each section
+  const sections = { composition:'sect-composition', upper:'sect-upper', torso:'sect-torso', lower:'sect-lower' };
+  Object.entries(sections).forEach(([sect, elId])=>{
+    const el = document.getElementById(elId);
+    const defs = MEAS_DEFS.filter(d=>d.section===sect);
+    el.innerHTML = defs.map(def=>{
+      const latest = getLatest(def.id);
+      return `<div class="meas-card" onclick="openMeasOverlay('${def.id}')">
+        <div class="meas-card-label">${def.label}</div>
+        <div class="meas-card-val" style="${latest?'color:'+def.color:''}">${latest ? latest.val : '—'}</div>
+        <div class="meas-card-unit">${def.unit}</div>
+        ${latest ? `<div class="meas-card-date">${new Date(latest.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>` : '<div class="meas-card-date">Tap to log</div>'}
+      </div>`;
+    }).join('');
+  });
+
+  // Render interactive SVG diagram
+  renderBodySVG();
+}
+
+function renderBodySVG() {
+  const wrap = document.getElementById('body-diagram-wrap');
+  const w = getLatest('weight'); const bf = getLatest('bodyfat');
+  const ch = getLatest('chest'); const sh = getLatest('shoulders');
+  const bi = getLatest('bicep'); const fa = getLatest('forearm');
+  const wa = getLatest('waist'); const hi = getLatest('hips');
+  const th = getLatest('thigh'); const ca = getLatest('calf');
+
+  const lbl = (def, latest, x, y, anchor='middle') => {
+    const color = def.color;
+    const val = latest ? latest.val+'"' : 'tap';
+    return `<text x="${x}" y="${y}" text-anchor="${anchor}" fill="${color}" font-size="9" font-weight="700" class="meas-hit" onclick="openMeasOverlay('${def.id}')" style="cursor:pointer;">${val}</text>`;
+  };
+
+  wrap.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 580" style="width:100%;height:auto;background:#0e0f11;border-radius:12px;border:1px solid #1e2126;">
+    <!-- Head -->
+    <ellipse cx="170" cy="72" rx="22" ry="26" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Neck -->
+    <rect x="161" y="95" width="18" height="14" rx="4" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Torso -->
+    <path d="M132 109 C120 112 110 122 108 140 L104 192 C102 207 104 222 108 234 L118 254 L222 254 L232 234 C236 222 238 207 236 192 L232 140 C230 122 220 112 208 109 Z" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Shoulder caps -->
+    <ellipse cx="122" cy="117" rx="16" ry="11" fill="#252a31" stroke="#3a3f48" stroke-width="1.5"/>
+    <ellipse cx="218" cy="117" rx="16" ry="11" fill="#252a31" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Left upper arm -->
+    <path d="M108 115 C98 120 92 132 91 147 L90 177 C90 184 94 190 100 190 L112 190 C116 190 118 184 118 177 L117 145 C117 130 114 119 108 115 Z" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Right upper arm -->
+    <path d="M232 115 C242 120 248 132 249 147 L250 177 C250 184 246 190 240 190 L228 190 C224 190 222 184 222 177 L223 145 C223 130 226 119 232 115 Z" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Left forearm -->
+    <path d="M91 190 C88 197 87 210 88 224 L90 247 C90 254 94 258 99 258 L111 258 C116 258 119 254 119 247 L120 224 C120 210 118 197 115 190 Z" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Right forearm -->
+    <path d="M249 190 C252 197 253 210 252 224 L250 247 C250 254 246 258 241 258 L229 258 C224 258 221 254 221 247 L220 224 C220 210 222 197 225 190 Z" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Hands -->
+    <ellipse cx="100" cy="265" rx="11" ry="12" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <ellipse cx="240" cy="265" rx="11" ry="12" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Hips -->
+    <path d="M115 252 C108 260 104 274 104 287 L104 297 L236 297 L236 287 C236 274 232 260 225 252 Z" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Left thigh -->
+    <path d="M104 292 C100 302 98 322 98 342 L98 382 C98 392 104 398 112 398 L132 398 C140 398 144 392 143 382 L141 342 C140 322 137 302 132 292 Z" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Right thigh -->
+    <path d="M236 292 C240 302 242 322 242 342 L242 382 C242 392 236 398 228 398 L208 398 C200 398 196 392 197 382 L199 342 C200 322 203 302 208 292 Z" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Knees -->
+    <ellipse cx="120" cy="402" rx="18" ry="9" fill="#252a31" stroke="#3a3f48" stroke-width="1.5"/>
+    <ellipse cx="220" cy="402" rx="18" ry="9" fill="#252a31" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Left calf -->
+    <path d="M103 410 C100 422 100 440 102 454 L104 482 C105 490 110 495 117 495 L128 495 C135 495 138 489 137 481 L137 452 C136 438 134 422 130 410 Z" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Right calf -->
+    <path d="M237 410 C240 422 240 440 238 454 L236 482 C235 490 230 495 223 495 L212 495 C205 495 202 489 203 481 L203 452 C204 438 206 422 210 410 Z" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Feet -->
+    <ellipse cx="118" cy="503" rx="16" ry="7" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <ellipse cx="222" cy="503" rx="16" ry="7" fill="#1e2126" stroke="#3a3f48" stroke-width="1.5"/>
+    <!-- Center line -->
+    <line x1="170" y1="109" x2="170" y2="510" stroke="#fff" stroke-width="0.3" stroke-dasharray="2,6" opacity="0.12"/>
+
+    <!-- MEASUREMENT LINES & TAPPABLE LABELS -->
+
+    <!-- SHOULDERS line -->
+    <line x1="106" y1="112" x2="234" y2="112" stroke="#4a9cf0" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
+    <line x1="106" y1="108" x2="106" y2="116" stroke="#4a9cf0" stroke-width="1.5"/>
+    <line x1="234" y1="108" x2="234" y2="116" stroke="#4a9cf0" stroke-width="1.5"/>
+    <rect x="140" y="98" width="60" height="16" rx="4" fill="#0e0f11" opacity="0.8"/>
+    ${lbl(MEAS_DEFS.find(d=>d.id==='shoulders'), sh, 170, 110)}
+
+    <!-- CHEST line -->
+    <line x1="108" y1="148" x2="232" y2="148" stroke="#c8f04a" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
+    <line x1="62" y1="148" x2="108" y2="148" stroke="#c8f04a" stroke-width="1" stroke-dasharray="2,3" opacity="0.4"/>
+    <line x1="62" y1="144" x2="62" y2="152" stroke="#c8f04a" stroke-width="1.5"/>
+    <rect x="18" y="141" width="42" height="14" rx="3" fill="#0e0f11" opacity="0.8"/>
+    ${lbl(MEAS_DEFS.find(d=>d.id==='chest'), ch, 39, 151, 'middle')}
+
+    <!-- BICEP line left -->
+    <line x1="77" y1="162" x2="106" y2="162" stroke="#4a9cf0" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
+    <line x1="65" y1="162" x2="77" y2="162" stroke="#4a9cf0" stroke-width="1" stroke-dasharray="2,3" opacity="0.4"/>
+    <line x1="65" y1="158" x2="65" y2="166" stroke="#4a9cf0" stroke-width="1.5"/>
+    <rect x="18" y="155" width="45" height="14" rx="3" fill="#0e0f11" opacity="0.8"/>
+    ${lbl(MEAS_DEFS.find(d=>d.id==='bicep'), bi, 40, 165, 'middle')}
+
+    <!-- FOREARM line left -->
+    <line x1="75" y1="222" x2="106" y2="222" stroke="#4a9cf0" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
+    <line x1="63" y1="222" x2="75" y2="222" stroke="#4a9cf0" stroke-width="1" stroke-dasharray="2,3" opacity="0.4"/>
+    <line x1="63" y1="218" x2="63" y2="226" stroke="#4a9cf0" stroke-width="1.5"/>
+    <rect x="14" y="215" width="48" height="14" rx="3" fill="#0e0f11" opacity="0.8"/>
+    ${lbl(MEAS_DEFS.find(d=>d.id==='forearm'), fa, 38, 225, 'middle')}
+
+    <!-- WAIST line -->
+    <line x1="108" y1="200" x2="232" y2="200" stroke="#f04a4a" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
+    <line x1="232" y1="200" x2="278" y2="200" stroke="#f04a4a" stroke-width="1" stroke-dasharray="2,3" opacity="0.4"/>
+    <line x1="278" y1="196" x2="278" y2="204" stroke="#f04a4a" stroke-width="1.5"/>
+    <rect x="280" y="193" width="46" height="14" rx="3" fill="#0e0f11" opacity="0.8"/>
+    ${lbl(MEAS_DEFS.find(d=>d.id==='waist'), wa, 303, 203, 'middle')}
+
+    <!-- HIPS line -->
+    <line x1="104" y1="282" x2="236" y2="282" stroke="#f04a4a" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
+    <line x1="236" y1="282" x2="278" y2="282" stroke="#f04a4a" stroke-width="1" stroke-dasharray="2,3" opacity="0.4"/>
+    <line x1="278" y1="278" x2="278" y2="286" stroke="#f04a4a" stroke-width="1.5"/>
+    <rect x="280" y="275" width="42" height="14" rx="3" fill="#0e0f11" opacity="0.8"/>
+    ${lbl(MEAS_DEFS.find(d=>d.id==='hips'), hi, 301, 285, 'middle')}
+
+    <!-- THIGH line left -->
+    <line x1="80" y1="348" x2="112" y2="348" stroke="#4af0a0" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
+    <line x1="68" y1="348" x2="80" y2="348" stroke="#4af0a0" stroke-width="1" stroke-dasharray="2,3" opacity="0.4"/>
+    <line x1="68" y1="344" x2="68" y2="352" stroke="#4af0a0" stroke-width="1.5"/>
+    <rect x="18" y="341" width="48" height="14" rx="3" fill="#0e0f11" opacity="0.8"/>
+    ${lbl(MEAS_DEFS.find(d=>d.id==='thigh'), th, 42, 351, 'middle')}
+
+    <!-- CALF line left -->
+    <line x1="80" y1="448" x2="110" y2="448" stroke="#4af0a0" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
+    <line x1="68" y1="448" x2="80" y2="448" stroke="#4af0a0" stroke-width="1" stroke-dasharray="2,3" opacity="0.4"/>
+    <line x1="68" y1="444" x2="68" y2="452" stroke="#4af0a0" stroke-width="1.5"/>
+    <rect x="22" y="441" width="44" height="14" rx="3" fill="#0e0f11" opacity="0.8"/>
+    ${lbl(MEAS_DEFS.find(d=>d.id==='calf'), ca, 44, 451, 'middle')}
+
+    <!-- Title -->
+    <text x="170" y="24" text-anchor="middle" fill="#c8f04a" font-size="11" font-weight="700" letter-spacing="1.5">BODY MEASUREMENTS</text>
+    <text x="170" y="38" text-anchor="middle" fill="#545c66" font-size="8" letter-spacing="1">TAP ANY LABEL TO LOG</text>
+  </svg>`;
+}
+
+
 function saveCustomMetrics() { save(METRICS_KEY, customMetrics); }
 
 function cmAddVar() {
