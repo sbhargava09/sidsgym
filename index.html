@@ -1212,13 +1212,23 @@ function syncHealthToSheets(metrics) {
   }).catch(()=>{});
 }
 
+function syncMeasurementToSheets(id, entry) {
+  const url = getSheetsUrl(); if(!url) return;
+  const def = MEAS_DEFS.find(d=>d.id===id);
+  if(!def) return;
+  fetch(url, {
+    method:'POST',
+    body: JSON.stringify({ type:'measurement', measurement: { id, label:def.label, unit:def.unit, val:entry.val, date:entry.date, ts:entry.ts } })
+  }).catch(()=>{});
+}
+
 function syncAllToSheets() {
   const url = getSheetsUrl();
   if(!url){ showToast('⚠ No Sheets URL — add it in Health tab'); return; }
   showToast('Syncing to Google Sheets…');
   fetch(url, {
     method:'POST',
-    body: JSON.stringify({ type:'fullSync', sessions, health: healthLog })
+    body: JSON.stringify({ type:'fullSync', sessions, health: healthLog, bodyData })
   }).then(r=>r.json())
     .then(d=>showToast(d.status==='ok' ? '✓ Synced to Google Sheets' : '⚠ Sync error: '+d.message))
     .catch(()=>showToast('⚠ Could not reach Sheets — check URL'));
@@ -1775,8 +1785,10 @@ function saveMeasurement() {
   const val = parseFloat(document.getElementById('meas-val-input').value);
   if(isNaN(val)||val<=0) { showToast('Enter a valid value'); return; }
   if(!bodyData.measurements[activeMeasId]) bodyData.measurements[activeMeasId]=[];
-  bodyData.measurements[activeMeasId].push({ val, date:todayKey(), ts:Date.now() });
+  const entry = { val, date:todayKey(), ts:Date.now() };
+  bodyData.measurements[activeMeasId].push(entry);
   saveBody();
+  syncMeasurementToSheets(activeMeasId, entry); // push to Sheets silently
   closeMeasOverlay();
   renderBodyPage();
   const def = MEAS_DEFS.find(d=>d.id===activeMeasId);
