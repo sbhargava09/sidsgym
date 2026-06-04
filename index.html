@@ -417,7 +417,7 @@ body{display:flex;flex-direction:column;}
 <div class="page" id="page-health">
   <div class="sec-label" style="margin-bottom:8px;">GOOGLE SHEETS SYNC</div>
   <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:16px;">
-    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6;">Paste your Apps Script Web App URL to enable automatic syncing after every workout. Data saves to localStorage always — Sheets is an extra backup.</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6;">Paste your Apps Script Web App URL to enable two-way sync. Your data is saved to Google Sheets and recalled automatically on every load — so it survives a hard refresh or cleared browser storage.</div>
     <input id="sheets-url-input" type="url" placeholder="https://script.google.com/macros/s/..." style="background:var(--surf2);border:1px solid var(--border2);border-radius:var(--rsm);padding:10px 12px;font-size:13px;color:var(--text);font-family:'DM Mono',monospace;width:100%;margin-bottom:8px;box-sizing:border-box;" oninput="saveSheetsUrl(this.value)">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <button onclick="testSheetsConnection()" style="padding:11px 6px;border-radius:var(--rsm);border:1px solid var(--border2);background:var(--surf2);color:var(--text);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Test Connection</button>
@@ -653,7 +653,7 @@ const LIBRARY_KEY  = 'sidsgym_library';
 const METRICS_KEY  = 'sidsgym_custom_metrics';
 const BODY_KEY     = 'sidsgym_body'; // { height:{ft,in}, measurements:{key:[{val,date,ts}]} }
 const DATA_SCHEMA  = 3;
-const APP_VERSION  = 'v3.1';
+const APP_VERSION  = 'v3.2';
 
 // Default active lists — used only if no library exists yet in localStorage
 const DEFAULT_LIBRARY = {
@@ -712,6 +712,7 @@ function saveLibrary() {
   TEMPLATES.upper.exercises = library.upper;
   TEMPLATES.lower.exercises = library.lower;
   TEMPLATES.full.exercises  = library.full;
+  if(typeof cloudLoaded!=='undefined' && cloudLoaded) syncToSheets();
 }
 
 // Migrate v1 data (keyed by date) to v2 (keyed by session ID) transparently
@@ -759,6 +760,10 @@ document.getElementById('nav-date').textContent = new Date().toLocaleDateString(
 document.getElementById('nav-version').textContent = APP_VERSION;
 updateStats();
 
+// Recall everything from Google Sheets on every load (survives hard refresh / cleared localStorage).
+// localStorage is just a fast cache + offline fallback; Sheets is the source of truth.
+loadFromSheets();
+
 function hardRefresh() {
   if(workoutStarted) {
     if(!confirm('Workout in progress — refresh anyway? Unsaved sets will be lost.')) return;
@@ -790,8 +795,10 @@ function saveSheetsUrl(val) {
   const status = document.getElementById('sheets-status');
   status.style.display = 'block';
   status.style.color = 'var(--text3)';
-  status.textContent = val.trim() ? 'URL saved ✓' : 'URL cleared';
-  setTimeout(()=>status.style.display='none', 2000);
+  status.textContent = val.trim() ? 'URL saved ✓ — recalling…' : 'URL cleared';
+  setTimeout(()=>status.style.display='none', 2500);
+  // As soon as a valid URL is entered, pull whatever is already in the cloud.
+  if(val.trim()) loadFromSheets();
 }
 
 function testSheetsConnection() {
@@ -1104,6 +1111,7 @@ function saveSession() {
     sessions[currentSessionId] = currentSession;
     save(SESSIONS_KEY, sessions);
     updateStats();
+    if(cloudLoaded) syncToSheets(); // mirror to Google Sheets in the background
   }
 }
 
@@ -1159,7 +1167,7 @@ function saveMetrics() {
   };
   healthLog[todayDate] = m;
   save(HEALTH_KEY, healthLog);
-  syncHealthToSheets(m); // push to Sheets silently
+  syncToSheets(); // push full state to Sheets in the background
   ['m-rhr','m-hrv','m-recovery','m-vo2','m-sleep','m-bw'].forEach(id=>document.getElementById(id).value='');
   closeOverlay('metrics-overlay');
   resetTodayUI();
@@ -1196,51 +1204,104 @@ function resetTodayUI() {
 function getSheetsUrl(){ return localStorage.getItem('sidsgym_sheets_url')||''; }
 function setSheetsUrl(url){ localStorage.setItem('sidsgym_sheets_url', url.trim()); }
 
-function syncSessionToSheets(sessionId, session) {
-  const url = getSheetsUrl(); if(!url) return;
-  fetch(url, {
-    method:'POST',
-    body: JSON.stringify({ type:'session', sessionId, session })
-  }).catch(()=>{});
+let cloudLoaded = false; // becomes true once we've recalled (or attempted) the cloud copy
+
+// Bundle the entire app state into one object — this is what we save to Sheets.
+function collectState() {
+  return { sessions, health: healthLog, library, customMetrics, bodyData };
 }
 
-function syncHealthToSheets(metrics) {
-  const url = getSheetsUrl(); if(!url) return;
-  fetch(url, {
-    method:'POST',
-    body: JSON.stringify({ type:'health', metrics })
-  }).catch(()=>{});
+// Apply a cloud state object into local memory + localStorage, then re-render.
+// On load the cloud is the source of truth. We UNION keyed collections so that
+// anything recorded offline since the last sync is preserved, not dropped.
+function applyCloudState(state) {
+  if(!state || typeof state !== 'object') return;
+
+  if(state.sessions && typeof state.sessions === 'object') {
+    Object.entries(state.sessions).forEach(([k,v])=>{ if(v) sessions[k] = v; });
+    save(SESSIONS_KEY, sessions);
+  }
+  if(state.health && typeof state.health === 'object') {
+    Object.entries(state.health).forEach(([k,v])=>{ if(v) healthLog[k] = v; });
+    save(HEALTH_KEY, healthLog);
+  }
+  if(state.library) {
+    if(state.library.upper) library.upper = state.library.upper;
+    if(state.library.lower) library.lower = state.library.lower;
+    if(state.library.full)  library.full  = state.library.full;
+    saveLibrary();
+  }
+  if(state.customMetrics) {
+    if(state.customMetrics.vars) customMetrics.vars = state.customMetrics.vars;
+    if(state.customMetrics.logs) customMetrics.logs = state.customMetrics.logs;
+    saveCustomMetrics();
+  }
+  if(state.bodyData) {
+    bodyData = state.bodyData;
+    saveBody();
+  }
+
+  // Refresh whatever is currently on screen so recalled data shows immediately.
+  updateStats();
+  const active = document.querySelector('.page.active');
+  const id = active ? active.id.replace('page-','') : 'today';
+  if(id==='history') renderHistory();
+  else if(id==='trends') renderTrends();
+  else if(id==='health') renderHealth();
+  else if(id==='body') renderBodyPage();
 }
 
-function syncMeasurementToSheets(id, entry) {
-  const url = getSheetsUrl(); if(!url) return;
-  const def = MEAS_DEFS.find(d=>d.id===id);
-  if(!def) return;
-  fetch(url, {
-    method:'POST',
-    body: JSON.stringify({ type:'measurement', measurement: { id, label:def.label, unit:def.unit, val:entry.val, date:entry.date, ts:entry.ts } })
-  }).catch(()=>{});
-}
-
-function syncAllToSheets() {
+// READ: recall the full dataset from Sheets on load (uses GET so no CORS issues).
+function loadFromSheets() {
   const url = getSheetsUrl();
-  if(!url){ showToast('⚠ No Sheets URL — add it in Health tab'); return; }
-  showToast('Syncing to Google Sheets…');
-  fetch(url, {
-    method:'POST',
-    body: JSON.stringify({ type:'fullSync', sessions, health: healthLog, bodyData })
-  }).then(r=>r.json())
-    .then(d=>showToast(d.status==='ok' ? '✓ Synced to Google Sheets' : '⚠ Sync error: '+d.message))
-    .catch(()=>showToast('⚠ Could not reach Sheets — check URL'));
+  if(!url){ cloudLoaded = true; return; }
+  fetch(url + (url.indexOf('?')>=0?'&':'?') + 'action=getAll')
+    .then(r=>r.json())
+    .then(d=>{
+      if(d && d.status==='ok' && d.state){
+        applyCloudState(d.state);
+        showToast('✓ Recalled from Google Sheets');
+      }
+    })
+    .catch(()=>{ /* offline — keep using the localStorage cache */ })
+    .finally(()=>{ cloudLoaded = true; });
 }
+
+// WRITE: push the full dataset to Sheets.
+function pushToSheets(opts) {
+  opts = opts || {};
+  const url = getSheetsUrl();
+  if(!url){ if(opts.announce) showToast('⚠ No Sheets URL — add it in Health tab'); return Promise.resolve(); }
+  if(opts.announce) showToast('Syncing to Google Sheets…');
+  return fetch(url, {
+    method:'POST',
+    headers: { 'Content-Type':'text/plain;charset=utf-8' }, // text/plain avoids CORS preflight on Apps Script
+    body: JSON.stringify({ action:'saveAll', state: collectState() })
+  }).then(r=>r.json())
+    .then(d=>{ if(opts.announce) showToast(d && d.status==='ok' ? '✓ Synced to Google Sheets' : '⚠ Sync error: '+((d&&d.message)||'')); })
+    .catch(()=>{ if(opts.announce) showToast('⚠ Could not reach Sheets — check URL'); });
+}
+
+// Debounced background sync so rapid edits don't fire dozens of requests.
+let _syncTimer = null;
+function syncToSheets() {
+  if(!getSheetsUrl()) return;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(()=>pushToSheets(), 800);
+}
+
+// Manual "Sync All Now" button.
+function syncAllToSheets() { pushToSheets({ announce:true }); }
+
+// Back-compat shims — older call sites now route through the full-state push.
+function syncSessionToSheets() { syncToSheets(); }
+function syncHealthToSheets()  { syncToSheets(); }
+function syncMeasurementToSheets() { syncToSheets(); }
 
 // ── AUTO-BACKUP ───────────────────────────────────────────────────────────────
 function autoBackup() {
-  // Data is always in localStorage. Also push to Sheets if configured.
-  const url = getSheetsUrl();
-  if(url && currentSessionId && sessions[currentSessionId]) {
-    syncSessionToSheets(currentSessionId, sessions[currentSessionId]);
-  }
+  // Data is always in localStorage. Also push the full state to Sheets if configured.
+  syncToSheets();
   showToast('Workout saved ✓');
 }
 
@@ -1709,7 +1770,7 @@ const MEAS_DEFS = [
   { id:'calf',      label:'Calf',         unit:'in',  section:'lower',       color:'var(--green)'  },
 ];
 
-function saveBody() { save(BODY_KEY, bodyData); }
+function saveBody() { save(BODY_KEY, bodyData); if(cloudLoaded) syncToSheets(); }
 
 function saveHeight() {
   const ft = parseInt(document.getElementById('height-ft').value)||0;
@@ -1954,7 +2015,7 @@ function renderBodySVG() {
 }
 
 
-function saveCustomMetrics() { save(METRICS_KEY, customMetrics); }
+function saveCustomMetrics() { save(METRICS_KEY, customMetrics); if(cloudLoaded) syncToSheets(); }
 
 function cmAddVar() {
   const name = document.getElementById('cm-name-input').value.trim();
