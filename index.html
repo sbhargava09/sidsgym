@@ -122,6 +122,8 @@ body{display:flex;flex-direction:column;}
 .set-check.done::after{content:'✓';font-size:14px;color:#000;font-weight:800;}
 .add-set-btn{width:100%;margin-top:10px;padding:9px;border-radius:6px;border:1px dashed var(--border2);background:transparent;color:var(--text3);font-family:'DM Mono',monospace;font-size:12px;cursor:pointer;}
 .add-set-btn:active{background:var(--surf2);}
+.del-set-btn{background:none;border:none;color:var(--text3);font-size:14px;cursor:pointer;padding:4px 6px;line-height:1;border-radius:4px;transition:color 0.15s;}
+.del-set-btn:active{color:var(--red);}
 
 /* ADD EXERCISE */
 .add-ex-btn{width:100%;margin-top:10px;padding:13px;border-radius:var(--r);border:1px dashed var(--border2);background:transparent;color:var(--text2);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.03em;}
@@ -1029,11 +1031,12 @@ function renderExercises() {
               <div></div>
             </div>
             ${ex.sets.map((s,si)=>`
-              <div class="set-row" id="set-${ei}-${si}">
+              <div class="set-row" id="set-${ei}-${si}" style="grid-template-columns:24px 1fr 1fr 32px 28px;">
                 <div class="set-num">${si+1}</div>
                 <div class="set-val ${s.done?'done-val':''}" id="wt-${ei}-${si}">${s.weight}</div>
                 <div class="set-val ${s.done?'done-val':''}" id="rp-${ei}-${si}">${s.reps}</div>
                 <div class="set-check ${s.done?'done':''}" id="chk-${ei}-${si}"></div>
+                <button class="del-set-btn" id="delset-${ei}-${si}">✕</button>
               </div>`).join('')}
             <button class="add-set-btn" id="addset-${ei}">+ Add Set</button>
           </div>
@@ -1056,6 +1059,7 @@ function renderExercises() {
       card.querySelector('#wt-'+ei+'-'+si).addEventListener('click', () => openDrum(ei, si, 'weight'));
       card.querySelector('#rp-'+ei+'-'+si).addEventListener('click', () => openDrum(ei, si, 'reps'));
       card.querySelector('#chk-'+ei+'-'+si).addEventListener('click', () => toggleSet(ei, si));
+      card.querySelector('#delset-'+ei+'-'+si).addEventListener('click', e => { e.stopPropagation(); deleteSet(ei, si); });
     });
     card.querySelector('#addset-'+ei).addEventListener('click', () => addSet(ei));
   });
@@ -1089,6 +1093,16 @@ function addSet(ei) {
   const last = ex.sets[ex.sets.length-1];
   ex.sets.push({weight:last.weight, reps:last.reps, done:false});
   // Temporarily mark this panel open in the DOM so renderExercises preserves it
+  const body = document.getElementById('ex-body-'+ei);
+  if(body) body.classList.add('open');
+  saveSession();
+  renderExercises();
+}
+
+function deleteSet(ei, si) {
+  const ex = currentSession.exercises[ei];
+  if(ex.sets.length <= 1) return; // always keep at least 1 set
+  ex.sets.splice(si, 1);
   const body = document.getElementById('ex-body-'+ei);
   if(body) body.classList.add('open');
   saveSession();
@@ -1218,11 +1232,11 @@ function applyCloudState(state) {
   if(!state || typeof state !== 'object') return;
 
   if(state.sessions && typeof state.sessions === 'object') {
-    sessions = state.sessions;           // full replace — respects deletions
+    sessions = state.sessions;
     save(SESSIONS_KEY, sessions);
   }
   if(state.health && typeof state.health === 'object') {
-    healthLog = state.health;            // full replace — respects deletions
+    healthLog = state.health;
     save(HEALTH_KEY, healthLog);
   }
   if(state.library) {
