@@ -1218,11 +1218,11 @@ function applyCloudState(state) {
   if(!state || typeof state !== 'object') return;
 
   if(state.sessions && typeof state.sessions === 'object') {
-    Object.entries(state.sessions).forEach(([k,v])=>{ if(v) sessions[k] = v; });
+    sessions = state.sessions;           // full replace — respects deletions
     save(SESSIONS_KEY, sessions);
   }
   if(state.health && typeof state.health === 'object') {
-    Object.entries(state.health).forEach(([k,v])=>{ if(v) healthLog[k] = v; });
+    healthLog = state.health;            // full replace — respects deletions
     save(HEALTH_KEY, healthLog);
   }
   if(state.library) {
