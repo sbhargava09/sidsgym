@@ -750,9 +750,9 @@ let phases = { warmup: { running:false, remaining:PHASE_DUR, interval:null }, co
 let drumTarget = null; // {ei, si, field}
 let drumTab = 'weight';
 let drumWeightVal = 50;
-let drumRepsVal = 10;
-const WEIGHTS = Array.from({length:40}, (_,i) => (i+1)*5); // 5..200
-const REPS = Array.from({length:30}, (_,i) => i+1); // 1..30
+let drumRepsVal = 12;
+const WEIGHTS = Array.from({length:41}, (_,i) => i*5); // 0..200
+const REPS = Array.from({length:120}, (_,i) => i+1); // 1..120
 
 // Drag state
 let dragSrc = null, dragOver = null;
