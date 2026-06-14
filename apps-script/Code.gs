@@ -1,5 +1,5 @@
 /**
- * Sid's Gym — Google Apps Script Web App  (v3.2 — TWO-WAY SYNC)
+ * Sid's Gym — Google Apps Script Web App  (v3.3 — TWO-WAY SYNC + SETS MIRROR)
  * ---------------------------------------------------------------------------
  * This script is the cloud source of truth for the Sid's Gym app.
  * The website both READS (recall on load) and WRITES (save after changes)
@@ -9,12 +9,17 @@
  *   - A hidden sheet named "_state" holds the entire app state as one JSON
  *     blob in cell A1. This is lossless and round-trips every data store
  *     (sessions, health, library, customMetrics, bodyData).
- *   - A human-readable "Sessions" sheet and "Health" sheet are also written
- *     so you can browse your data as a normal spreadsheet. These are
- *     for VIEWING only — the app reads from "_state".
+ *   - A human-readable "Sessions" sheet, "Health" sheet, and "Sets" sheet
+ *     are also written so you can browse your data as a normal spreadsheet.
+ *     These are for VIEWING only — the app reads from "_state".
+ *   - The Sets sheet is fully rebuilt on every save, so deleted workouts
+ *     are automatically removed from it.
+ *
+ * SETS SHEET COLUMNS
+ *   Session ID | Date | Exercise Name | Set # | Reps | Weight | Unit | Notes
  *
  * ENDPOINTS
- *   GET   ?action=ping        -> { status:'ok', version:'3.2' }      (connection test)
+ *   GET   ?action=ping        -> { status:'ok', version:'3.3' }      (connection test)
  *   GET   ?action=getAll      -> { status:'ok', state:{...} }        (recall everything)
  *   POST  { action:'saveAll', state:{...} }                          (save everything)
  *   POST  { type:'fullSync', sessions, health, bodyData }            (back-compat)
@@ -34,10 +39,11 @@
  * ---------------------------------------------------------------------------
  */
 
-var VERSION   = '3.2';
+var VERSION    = '3.3';
 var STATE_SHEET = '_state';   // hidden JSON blob — the real source of truth
 var SESS_SHEET  = 'Sessions'; // human-readable mirror
 var HEALTH_SHEET= 'Health';   // human-readable mirror
+var SETS_SHEET  = 'Sets';     // human-readable sets/exercises mirror
 
 // ── ENTRY POINTS ────────────────────────────────────────────────────────────
 function doGet(e) {
@@ -227,6 +233,71 @@ function writeReadableMirrors(state) {
     hrows.push([d, m.rhr || '', m.hrv || '', m.recovery || '', m.vo2 || '', m.sleep || '', m.bw || '']);
   });
   if (hrows.length) hs.getRange(2, 1, hrows.length, 7).setValues(hrows);
+
+  // Sets sheet — fully rebuilt every save so deletions are reflected automatically
+  writeSetsSheet(state);
+}
+
+/**
+ * Rebuild the Sets sheet from scratch using the current state.
+ * Each strength exercise set gets its own row.
+ * Cardio sessions are written as a single summary row (no individual sets).
+ * Because the sheet is fully cleared and rewritten, any workout deleted
+ * from the app will automatically disappear from this sheet on the next save.
+ *
+ * Columns:
+ *   Session ID | Date | Exercise Name | Set # | Reps | Weight | Unit | Notes
+ */
+function writeSetsSheet(state) {
+  var ws = getSheet(SETS_SHEET, false);
+  ws.clearContents();
+  ws.getRange(1, 1, 1, 8).setValues([
+    ['Session ID', 'Date', 'Exercise Name', 'Set #', 'Reps', 'Weight', 'Unit', 'Notes']
+  ]);
+
+  var setsRows = [];
+
+  Object.keys(state.sessions || {}).sort().forEach(function (id) {
+    var s = state.sessions[id] || {};
+    var date = s.date || '';
+
+    // Strength / resistance session — iterate exercises and their sets
+    if (s.exercises && s.exercises.length) {
+      s.exercises.forEach(function (ex) {
+        var exName = ex.name || ex.id || 'Unknown';
+        var sets = ex.sets || [];
+        if (sets.length === 0) {
+          // Exercise logged but no set data
+          setsRows.push([id, date, exName, '', '', '', '', '']);
+        } else {
+          sets.forEach(function (set, idx) {
+            var setNum  = (set.setNum  != null) ? set.setNum  : (idx + 1);
+            var reps    = (set.reps    != null) ? set.reps    : '';
+            var weight  = (set.weight  != null) ? set.weight  : '';
+            var unit    = set.unit    || 'lbs';
+            var notes   = set.notes   || '';
+            setsRows.push([id, date, exName, setNum, reps, weight, unit, notes]);
+          });
+        }
+      });
+
+    // Cardio session — single summary row
+    } else if (s.cardio) {
+      var c = s.cardio;
+      var cardioName = 'Cardio' + (c.subType ? ' — ' + c.subType : '');
+      var cardioDetail = [
+        c.dist  ? c.dist + ' mi'            : '',
+        c.time  ? c.time + ' min'           : '',
+        c.pace  ? 'pace ' + c.pace          : '',
+        c.cals  ? c.cals + ' kcal'          : ''
+      ].filter(Boolean).join(', ');
+      setsRows.push([id, date, cardioName, '', '', '', '', cardioDetail]);
+    }
+  });
+
+  if (setsRows.length) {
+    ws.getRange(2, 1, setsRows.length, 8).setValues(setsRows);
+  }
 }
 
 function fmt(ts) {
