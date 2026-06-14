@@ -1,5 +1,5 @@
 /**
- * Sid's Gym — Google Apps Script Web App  (v3.4 — TWO-WAY SYNC + SETS MIRROR)
+ * Sid's Gym — Google Apps Script Web App  (v3.5 — ALL SETS + PERFORMED COLUMN)
  * ---------------------------------------------------------------------------
  * This script is the cloud source of truth for the Sid's Gym app.
  * The website both READS (recall on load) and WRITES (save after changes)
@@ -14,14 +14,16 @@
  *     These are for VIEWING only — the app reads from "_state".
  *   - The Sets sheet is fully rebuilt on every save, so deleted workouts
  *     are automatically removed from it.
- *   - Only sets that were checked off (done === true) are written to the
- *     Sets sheet. Uncompleted sets are excluded.
+ *   - ALL sets (completed and not) are written to the Sets sheet.
+ *     The "Notes" column shows "Yes" if the set was checked off (done),
+ *     or "No" if it was not performed during that workout session.
  *
  * SETS SHEET COLUMNS
  *   Session ID | Date | Exercise Name | Set # | Reps | Weight | Unit | Notes
+ *   (Notes = "Yes" if performed, "No" if not performed)
  *
  * ENDPOINTS
- *   GET   ?action=ping        -> { status:'ok', version:'3.4' }      (connection test)
+ *   GET   ?action=ping        -> { status:'ok', version:'3.5' }      (connection test)
  *   GET   ?action=getAll      -> { status:'ok', state:{...} }        (recall everything)
  *   POST  { action:'saveAll', state:{...} }                          (save everything)
  *   POST  { type:'fullSync', sessions, health, bodyData }            (back-compat)
@@ -41,7 +43,7 @@
  * ---------------------------------------------------------------------------
  */
 
-var VERSION    = '3.4';
+var VERSION    = '3.5';
 var STATE_SHEET = '_state';   // hidden JSON blob — the real source of truth
 var SESS_SHEET  = 'Sessions'; // human-readable mirror
 var HEALTH_SHEET= 'Health';   // human-readable mirror
@@ -242,14 +244,16 @@ function writeReadableMirrors(state) {
 
 /**
  * Rebuild the Sets sheet from scratch using the current state.
- * Only sets that were completed (done === true) are written.
- * Exercises where no sets were checked off are omitted entirely.
+ * ALL sets (completed and not completed) are written for every exercise.
+ * The "Notes" column shows "Yes" if the set was checked off (done === true),
+ * or "No" if the exercise was not performed during that workout session.
  * Cardio sessions are written as a single summary row.
  * Because the sheet is fully cleared and rewritten, any workout deleted
  * from the app will automatically disappear from this sheet on the next save.
  *
  * Columns:
  *   Session ID | Date | Exercise Name | Set # | Reps | Weight | Unit | Notes
+ *   (Notes = "Yes" = performed, "No" = not performed)
  */
 function writeSetsSheet(state) {
   var ws = getSheet(SETS_SHEET, false);
@@ -264,25 +268,23 @@ function writeSetsSheet(state) {
     var s = state.sessions[id] || {};
     var date = s.date || '';
 
-    // Strength / resistance session — only write sets that were checked off
+    // Strength / resistance session — write ALL sets with Yes/No performed flag
     if (s.exercises && s.exercises.length) {
       s.exercises.forEach(function (ex) {
         var exName = ex.name || ex.id || 'Unknown';
         var sets = ex.sets || [];
 
-        // Filter to only completed sets
-        var doneSets = sets.filter(function (set) { return set.done === true; });
+        // Skip exercises that have no sets at all
+        if (sets.length === 0) return;
 
-        // Skip this exercise entirely if no sets were completed
-        if (doneSets.length === 0) return;
-
-        doneSets.forEach(function (set, idx) {
-          var setNum  = (set.setNum  != null) ? set.setNum  : (idx + 1);
-          var reps    = (set.reps    != null) ? set.reps    : '';
-          var weight  = (set.weight  != null) ? set.weight  : '';
-          var unit    = set.unit    || 'lbs';
-          var notes   = set.notes   || '';
-          setsRows.push([id, date, exName, setNum, reps, weight, unit, notes]);
+        sets.forEach(function (set, idx) {
+          var setNum   = (set.setNum  != null) ? set.setNum  : (idx + 1);
+          var reps     = (set.reps    != null) ? set.reps    : '';
+          var weight   = (set.weight  != null) ? set.weight  : '';
+          var unit     = set.unit    || 'lbs';
+          // "Yes" if the set was checked off (performed), "No" if not
+          var performed = (set.done === true) ? 'Yes' : 'No';
+          setsRows.push([id, date, exName, setNum, reps, weight, unit, performed]);
         });
       });
 
