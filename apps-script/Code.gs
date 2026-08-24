@@ -1,5 +1,5 @@
 /**
- * Sid's Gym — Google Apps Script Web App  (v3.5 — ALL SETS + PERFORMED COLUMN)
+ * Sid's Gym — Google Apps Script Web App  (v3.6 — CHUNKED STATE STORAGE)
  * ---------------------------------------------------------------------------
  * This script is the cloud source of truth for the Sid's Gym app.
  * The website both READS (recall on load) and WRITES (save after changes)
@@ -7,8 +7,10 @@
  *
  * HOW IT STORES DATA
  *   - A hidden sheet named "_state" holds the entire app state as one JSON
- *     blob in cell A1. This is lossless and round-trips every data store
- *     (sessions, health, library, customMetrics, bodyData).
+ *     string, split across consecutive cells in column A (one chunk per
+ *     row) so it isn't capped by Google Sheets' 50,000-character-per-cell
+ *     limit. Older data written as a single A1 blob (pre-3.6) is still read
+ *     correctly — chunking only changes how new writes are laid out.
  *   - A human-readable "Sessions" sheet, "Health" sheet, and "Sets" sheet
  *     are also written so you can browse your data as a normal spreadsheet.
  *     These are for VIEWING only — the app reads from "_state".
@@ -23,7 +25,7 @@
  *   (Notes = "Yes" if performed, "No" if not performed)
  *
  * ENDPOINTS
- *   GET   ?action=ping        -> { status:'ok', version:'3.5' }      (connection test)
+ *   GET   ?action=ping        -> { status:'ok', version:'3.6' }      (connection test)
  *   GET   ?action=getAll      -> { status:'ok', state:{...} }        (recall everything)
  *   POST  { action:'saveAll', state:{...} }                          (save everything)
  *   POST  { type:'fullSync', sessions, health, bodyData }            (back-compat)
@@ -40,14 +42,16 @@
  *
  *   IMPORTANT: any time you EDIT this script you must redeploy
  *   (Deploy → Manage deployments → Edit → New version) for changes to apply.
+ *   Editing/saving alone does NOT update the live /exec URL's behavior.
  * ---------------------------------------------------------------------------
  */
 
-var VERSION    = '3.5';
-var STATE_SHEET = '_state';   // hidden JSON blob — the real source of truth
+var VERSION    = '3.6';
+var STATE_SHEET = '_state';   // hidden JSON blob (chunked across column A) — the real source of truth
 var SESS_SHEET  = 'Sessions'; // human-readable mirror
 var HEALTH_SHEET= 'Health';   // human-readable mirror
 var SETS_SHEET  = 'Sets';     // human-readable sets/exercises mirror
+var STATE_CHUNK_SIZE = 45000; // stay safely under Sheets' 50,000-char single-cell limit
 
 // ── ENTRY POINTS ────────────────────────────────────────────────────────────
 function doGet(e) {
@@ -119,10 +123,19 @@ function doPost(e) {
   }
 }
 
-// ── STATE READ / WRITE (JSON blob in _state!A1) ──────────────────────────────
+// ── STATE READ / WRITE (JSON string chunked across _state column A) ──────────
+// A single Sheets cell caps out at 50,000 characters. As workout history
+// grows, one JSON blob in A1 will eventually exceed that and silently start
+// failing to save. Instead we split the JSON string into <=45,000-char
+// chunks and write one chunk per row in column A, then rejoin on read.
+// This also transparently reads old pre-3.6 saves that still have the
+// entire blob sitting in a single A1 cell (lastRow will just be 1).
 function readState() {
   var sh = getSheet(STATE_SHEET, true);
-  var raw = sh.getRange(1, 1).getValue();
+  var lastRow = sh.getLastRow();
+  if (lastRow < 1) return emptyState();
+  var values = sh.getRange(1, 1, lastRow, 1).getValues();
+  var raw = values.map(function (row) { return row[0] || ''; }).join('');
   if (!raw) return emptyState();
   try {
     var parsed = JSON.parse(raw);
@@ -136,7 +149,14 @@ function readState() {
 function writeState(state) {
   var sh = getSheet(STATE_SHEET, true);
   state.updatedAt = new Date().toISOString();
-  sh.getRange(1, 1).setValue(JSON.stringify(state));
+  var json = JSON.stringify(state);
+  var chunks = [];
+  for (var i = 0; i < json.length; i += STATE_CHUNK_SIZE) {
+    chunks.push([json.substring(i, i + STATE_CHUNK_SIZE)]);
+  }
+  if (!chunks.length) chunks.push(['']);
+  sh.clearContents();
+  sh.getRange(1, 1, chunks.length, 1).setValues(chunks);
   // Also refresh the human-readable mirrors (best-effort)
   try { writeReadableMirrors(state); } catch (err) {}
 }
