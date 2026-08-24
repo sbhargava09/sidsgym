@@ -1234,18 +1234,30 @@ function collectState() {
   return { sessions, health: healthLog, library, customMetrics, bodyData };
 }
 
+// Union two keyed collections (id -> object). Incoming wins on key conflicts,
+// but keys that only exist on one side are always kept — this is what stops a
+// stale cloud pull from erasing a workout the device hasn't pushed up yet.
+function unionKeyed(base, incoming) {
+  const out = Object.assign({}, base || {});
+  Object.assign(out, incoming || {});
+  return out;
+}
+
 // Apply a cloud state object into local memory + localStorage, then re-render.
-// On load the cloud is the source of truth. We UNION keyed collections so that
-// anything recorded offline since the last sync is preserved, not dropped.
+// We UNION keyed collections (rather than replace) so that anything recorded
+// offline since the last sync is preserved, not dropped.
 function applyCloudState(state) {
   if(!state || typeof state !== 'object') return;
 
   if(state.sessions && typeof state.sessions === 'object') {
-    sessions = state.sessions;
+    const merged = unionKeyed(sessions, state.sessions);
+    const hadLocalOnly = Object.keys(merged).length !== Object.keys(state.sessions).length;
+    sessions = merged;
     save(SESSIONS_KEY, sessions);
+    if(hadLocalOnly) syncToSheets(); // push the sessions the cloud was missing
   }
   if(state.health && typeof state.health === 'object') {
-    healthLog = state.health;
+    healthLog = unionKeyed(healthLog, state.health);
     save(HEALTH_KEY, healthLog);
   }
   if(state.library) {
