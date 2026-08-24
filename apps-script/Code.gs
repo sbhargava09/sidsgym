@@ -168,6 +168,7 @@ function emptyState() {
     library: null,
     customMetrics: null,
     bodyData: { height: null, measurements: {} },
+    deletedSessionIds: [],
     updatedAt: null
   };
 }
@@ -176,6 +177,13 @@ function emptyState() {
  * Merge two states. Cloud + incoming. For keyed collections (sessions, health)
  * we keep the union; on conflicts the incoming (most recent client) wins.
  * library / customMetrics / bodyData take incoming when provided.
+ *
+ * deletedSessionIds is a set of tombstones, unioned (never shrinks). Without
+ * this, a deleted session can never actually be removed: the union merge
+ * above only ever ADDS keys, so a client pushing a smaller `sessions` object
+ * would just get the "missing" session merged back in from base on the very
+ * next save. Any id in deletedSessionIds is explicitly dropped from the
+ * merged sessions, no matter which side it came from.
  */
 function mergeState(base, incoming) {
   base = base || emptyState();
@@ -185,12 +193,20 @@ function mergeState(base, incoming) {
     health: {},
     library: base.library || null,
     customMetrics: base.customMetrics || null,
-    bodyData: base.bodyData || { height: null, measurements: {} }
+    bodyData: base.bodyData || { height: null, measurements: {} },
+    deletedSessionIds: []
   };
 
-  // sessions — union, incoming wins on conflict
+  // deletedSessionIds — union as a de-duplicated set of tombstones
+  var delSet = {};
+  (base.deletedSessionIds || []).forEach(function (id) { delSet[id] = true; });
+  (incoming.deletedSessionIds || []).forEach(function (id) { delSet[id] = true; });
+  out.deletedSessionIds = Object.keys(delSet);
+
+  // sessions — union, incoming wins on conflict, then drop any tombstoned id
   Object.keys(base.sessions || {}).forEach(function (k) { out.sessions[k] = base.sessions[k]; });
   Object.keys(incoming.sessions || {}).forEach(function (k) { out.sessions[k] = incoming.sessions[k]; });
+  out.deletedSessionIds.forEach(function (id) { delete out.sessions[id]; });
 
   // health — union, incoming wins
   Object.keys(base.health || {}).forEach(function (k) { out.health[k] = base.health[k]; });

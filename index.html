@@ -664,6 +664,7 @@ const HEALTH_KEY   = 'sidsgym_health';
 const LIBRARY_KEY  = 'sidsgym_library';
 const METRICS_KEY  = 'sidsgym_custom_metrics';
 const BODY_KEY     = 'sidsgym_body'; // { height:{ft,in}, measurements:{key:[{val,date,ts}]} }
+const DELETED_SESSIONS_KEY = 'sidsgym_deleted_sessions'; // tombstones — ids deleted locally, so a merge-pull can't resurrect them
 const DATA_SCHEMA  = 3;
 const APP_VERSION  = 'v3.2';
 
@@ -706,6 +707,7 @@ const EXERCISE_BANK = {
 };
 
 let sessions      = load(SESSIONS_KEY, {});
+let deletedSessionIds = load(DELETED_SESSIONS_KEY, []);
 let healthLog     = load(HEALTH_KEY, {});
 let library       = load(LIBRARY_KEY, JSON.parse(JSON.stringify(DEFAULT_LIBRARY)));
 let customMetrics = load(METRICS_KEY, { vars: [], logs: [] });
@@ -1230,8 +1232,11 @@ function getSheetsUrl(){ return localStorage.getItem('sidsgym_sheets_url')||''; 
 function setSheetsUrl(url){ localStorage.setItem('sidsgym_sheets_url', url.trim()); }
 
 // Bundle the entire app state into one object — this is what we save to Sheets.
+// deletedSessionIds rides along so the server can actually remove those keys
+// from its own stored state, instead of just seeing a smaller `sessions` and
+// merging the "missing" ones right back in from what it already has.
 function collectState() {
-  return { sessions, health: healthLog, library, customMetrics, bodyData };
+  return { sessions, health: healthLog, library, customMetrics, bodyData, deletedSessionIds };
 }
 
 // Union two keyed collections (id -> object). Incoming wins on key conflicts,
@@ -1249,12 +1254,24 @@ function unionKeyed(base, incoming) {
 function applyCloudState(state) {
   if(!state || typeof state !== 'object') return;
 
+  // Learn any tombstones recorded elsewhere (e.g. deleted from another
+  // device), and apply the full known tombstone set below so a stale pull
+  // can never resurrect a session this device already knows was deleted.
+  if(Array.isArray(state.deletedSessionIds)) {
+    let learnedNew = false;
+    state.deletedSessionIds.forEach(id => {
+      if(!deletedSessionIds.includes(id)) { deletedSessionIds.push(id); learnedNew = true; }
+    });
+    if(learnedNew) save(DELETED_SESSIONS_KEY, deletedSessionIds);
+  }
+
   if(state.sessions && typeof state.sessions === 'object') {
     const merged = unionKeyed(sessions, state.sessions);
-    const hadLocalOnly = Object.keys(merged).length !== Object.keys(state.sessions).length;
+    deletedSessionIds.forEach(id => { delete merged[id]; });
+    const localOnlyKeys = Object.keys(merged).filter(id => !(id in state.sessions));
     sessions = merged;
     save(SESSIONS_KEY, sessions);
-    if(hadLocalOnly) syncToSheets(); // push the sessions the cloud was missing
+    if(localOnlyKeys.length) syncToSheets(); // push sessions (or tombstones) the cloud was missing
   }
   if(state.health && typeof state.health === 'object') {
     healthLog = unionKeyed(healthLog, state.health);
@@ -1581,6 +1598,13 @@ function cancelDelete(k) {
 function deleteSession(k) {
   delete sessions[k];
   save(SESSIONS_KEY, sessions);
+  // Record a tombstone: without this, the cloud (and any stale pull) would
+  // just merge the deleted session right back in, since sync is a union
+  // merge that only ever adds keys and never infers a delete from absence.
+  if(!deletedSessionIds.includes(k)) {
+    deletedSessionIds.push(k);
+    save(DELETED_SESSIONS_KEY, deletedSessionIds);
+  }
   syncToSheets();
   updateStats();
   renderHistory();
