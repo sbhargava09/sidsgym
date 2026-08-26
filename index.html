@@ -158,6 +158,10 @@ body{display:flex;flex-direction:column;}
 .sheet-close{font-size:22px;color:var(--text3);cursor:pointer;padding:4px;}
 .sheet-input{background:var(--surf2);border:1px solid var(--border2);border-radius:var(--rsm);padding:12px 14px;font-size:16px;color:var(--text);font-family:'Syne',sans-serif;width:calc(100% - 40px);margin:0 20px 12px;display:block;}
 .sheet-input:focus{outline:none;border-color:var(--accent);}
+.ex-suggest-list{margin:0 20px 12px;display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;}
+.ex-suggest-item{background:var(--surf2);border:1px solid var(--border2);border-radius:var(--rsm);padding:10px 14px;font-size:14px;color:var(--text);cursor:pointer;}
+.ex-suggest-item:active{background:var(--surf3);}
+.ex-suggest-empty{font-size:12px;color:var(--text3);padding:2px 2px 0;}
 .sheet-save-btn{margin:4px 20px 0;width:calc(100% - 40px);padding:14px;border-radius:var(--r);border:none;background:var(--accent);color:#000;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;cursor:pointer;}
 
 /* METRICS OVERLAY */
@@ -633,7 +637,8 @@ body{display:flex;flex-direction:column;}
       <div style="font-size:15px;font-weight:700;">Add Exercise</div>
       <div class="sheet-close" onclick="closeAddExercise()">✕</div>
     </div>
-    <input class="sheet-input" id="ex-name-input" placeholder="Exercise name" type="text">
+    <input class="sheet-input" id="ex-name-input" placeholder="Exercise name" type="text" autocomplete="off" oninput="renderExSuggestions(this.value)">
+    <div class="ex-suggest-list" id="ex-suggest-list"></div>
     <button class="sheet-save-btn" onclick="saveNewExercise()">ADD TO WORKOUT</button>
   </div>
 </div>
@@ -690,7 +695,10 @@ const EXERCISE_BANK = {
     'Pull-Ups','Chin-Ups','Lat Pulldown','Straight-Arm Pulldown','Face Pulls',
     'Dumbbell Curl','Barbell Curl','Hammer Curl','Preacher Curl','Cable Curl',
     'Tricep Band Pushdown','Skull Crushers','Overhead Tricep Extension','Close-Grip Bench Press','Dips',
-    'Shrugs','Upright Row','Rear Delt Flyes','Incline Curl','Concentration Curl'
+    'Shrugs','Upright Row','Rear Delt Flyes','Incline Curl','Concentration Curl',
+    'Lat Rows','Biceps Cable Curls','Triceps Pushdown','Dumbbell Bench Press','Barbell Shoulder Press',
+    'Barbell biceps curl','Dumbbell Incline Bench press','Hammer Curls with Weight','Dumbbell Shoulder Press',
+    'Dumbbell rows','Deltoids Superset','Single-Arm Dumbbell curl'
   ],
   lower: [
     'Barbell Squat','Front Squat','Hack Squat','Leg Press','Smith Machine Squat',
@@ -699,7 +707,8 @@ const EXERCISE_BANK = {
     'Leg Curl (Machine)','Lying Leg Curl','Nordic Hamstring Curl','Seated Leg Curl','Single-Leg Deadlift',
     'Calf Raises','Seated Calf Raise','Donkey Calf Raise','Single-Leg Calf Raise','Box Jumps',
     'Ab Wheel Rollout','Hanging Leg Raise','Cable Crunch','Plank','Dead Bug',
-    'Band Hip Abduction','Hip Thrust','Banded Clamshell','Side-Lying Hip Abduction','Glute Kickback'
+    'Band Hip Abduction','Hip Thrust','Banded Clamshell','Side-Lying Hip Abduction','Glute Kickback',
+    'Squats','Leg Extension','Calves Machine','Oblique abs','Crunches'
   ],
   full: [
     'Barbell Deadlift','Trap Bar Deadlift','Power Clean','Kettlebell Swing','Clean and Press',
@@ -775,6 +784,33 @@ const REPS = Array.from({length:120}, (_,i) => i+1); // 1..120
 
 // Drag state
 let dragSrc = null, dragOver = null;
+
+// One-time cleanup: merge exercise names that were logged inconsistently
+// (e.g. "Skullcrushers" vs "Skull Crushers") into one canonical name, and
+// make sure exercises already present in session history are also in the
+// active library for their category, so they show up when adding exercises
+// and in the workout templates. Runs once per device/browser.
+const LIB_MIGRATION_KEY = 'sidsgym_lib_migration_v41';
+function migrateLibraryV41() {
+  if(localStorage.getItem(LIB_MIGRATION_KEY)) return;
+  [['Skullcrushers','Skull Crushers'],['Skull crushers','Skull Crushers'],['Dumbbell bench press','Dumbbell Bench Press']]
+    .forEach(([oldName,newName]) => renameExerciseEverywhere(oldName,newName));
+  const additions = {
+    upper: ['Lat Pulldown','Lat Rows','Barbell Row','Biceps Cable Curls','Triceps Pushdown','Skull Crushers',
+      'Dumbbell Bench Press','Barbell Shoulder Press','Barbell Curl','Barbell biceps curl','Dumbbell Incline Bench press',
+      'Dumbbell Flyes','Hammer Curls with Weight','DB Single-Arm Row','Dumbbell Shoulder Press','Dumbbell rows',
+      'Deltoids Superset','Single-Arm Dumbbell curl','Pull-Ups'],
+    lower: ['Leg Press','Romanian Deadlift','Calf Raises','Squats','Leg Extension','Calves Machine',
+      'Walking DB Lunges','Barbell Squat','Oblique abs','Crunches'],
+    full: ['Pull-Ups']
+  };
+  let touched = false;
+  Object.entries(additions).forEach(([type,names])=>{
+    names.forEach(n=>{ if(!library[type].includes(n)){ library[type].push(n); touched=true; } });
+  });
+  if(touched){ saveLibrary(); syncToSheets(); }
+  localStorage.setItem(LIB_MIGRATION_KEY, '1');
+}
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 document.getElementById('nav-date').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
@@ -1028,6 +1064,7 @@ function renderExercises() {
     card.dataset.ei = ei;
     const doneSets = ex.sets.filter(s=>s.done).length;
     const allDone = doneSets === ex.sets.length;
+    const spark = sparklineHTML(exerciseHistory(ex.name));
     card.innerHTML = `
       <div style="display:flex;align-items:stretch;">
         <div style="display:flex;flex-direction:column;gap:3px;padding:12px 6px 12px 10px;flex-shrink:0;justify-content:center;">
@@ -1040,6 +1077,7 @@ function renderExercises() {
               <div class="ex-name" style="${allDone?'color:var(--accent)':''}">${allDone?'✓ ':''}${ex.name}</div>
               <div class="ex-meta">${doneSets}/${ex.sets.length} sets · ${ex.sets.reduce((a,s)=>a+(s.done?s.weight*s.reps:0),0).toLocaleString()} lbs</div>
             </div>
+            ${spark}
             <div class="ex-chevron" id="chev-${ei}">›</div>
           </div>
           <div class="ex-body" id="ex-body-${ei}">
@@ -1312,7 +1350,7 @@ function applyCloudState(state) {
 // READ: recall the full dataset from Sheets on load (uses GET so no CORS issues).
 function loadFromSheets() {
   const url = getSheetsUrl();
-  if(!url){ cloudLoaded = true; return; }
+  if(!url){ cloudLoaded = true; migrateLibraryV41(); return; }
   fetch(url + (url.indexOf('?')>=0?'&':'?') + 'action=getAll')
     .then(r=>r.json())
     .then(d=>{
@@ -1322,7 +1360,7 @@ function loadFromSheets() {
       }
     })
     .catch(()=>{ /* offline — keep using the localStorage cache */ })
-    .finally(()=>{ cloudLoaded = true; });
+    .finally(()=>{ cloudLoaded = true; migrateLibraryV41(); });
 }
 
 // WRITE: push the full dataset to Sheets.
@@ -1439,11 +1477,46 @@ function drumDone() {
 function closeDrum() { closeOverlay('drum-overlay'); }
 
 // ── ADD EXERCISE ──────────────────────────────────────────────────────────────
-function showAddExercise() { showOverlay('add-ex-overlay'); setTimeout(()=>document.getElementById('ex-name-input').focus(),300); }
-function closeAddExercise() { closeOverlay('add-ex-overlay'); document.getElementById('ex-name-input').value=''; }
+function showAddExercise() { showOverlay('add-ex-overlay'); renderExSuggestions(''); setTimeout(()=>document.getElementById('ex-name-input').focus(),300); }
+function closeAddExercise() { closeOverlay('add-ex-overlay'); document.getElementById('ex-name-input').value=''; document.getElementById('ex-suggest-list').innerHTML=''; }
+
+// Autocomplete: show matching library exercises for the current workout type
+// as the user types. Selecting one fills the input; typing something that
+// matches nothing is still allowed — saveNewExercise() adds it as new.
+function renderExSuggestions(filter) {
+  const box = document.getElementById('ex-suggest-list');
+  const list = library[currentType];
+  if(!list){ box.innerHTML=''; return; }
+  const q = (filter||'').trim().toLowerCase();
+  const matches = list.filter(n=>n.toLowerCase().includes(q)).slice(0,8);
+  if(!matches.length){
+    box.innerHTML = q ? '<div class="ex-suggest-empty">No match — this will be added as a new exercise.</div>' : '';
+    return;
+  }
+  box.innerHTML = matches.map(n=>`<div class="ex-suggest-item">${n}</div>`).join('');
+  box.querySelectorAll('.ex-suggest-item').forEach((el,i)=>{
+    el.addEventListener('click', ()=>{
+      document.getElementById('ex-name-input').value = matches[i];
+      renderExSuggestions(matches[i]);
+    });
+  });
+}
+
 function saveNewExercise() {
-  const name = document.getElementById('ex-name-input').value.trim();
-  if(!name) return;
+  const raw = document.getElementById('ex-name-input').value.trim();
+  if(!raw) return;
+  let name = raw;
+  const list = library[currentType];
+  if(list){
+    const existing = list.find(n=>n.toLowerCase()===raw.toLowerCase());
+    if(existing){
+      name = existing; // reuse existing casing instead of creating a near-duplicate
+    } else {
+      list.push(raw);
+      saveLibrary();
+      showToast('Added "'+raw+'" to your '+TEMPLATES[currentType].label+' library');
+    }
+  }
   const prevSets = getLastSets(name);
   currentSession.exercises.push({ name, sets: prevSets });
   saveSession();
@@ -1617,6 +1690,39 @@ function deleteSession(k) {
   showToast('Workout deleted');
 }
 
+// ── EXERCISE HISTORY / SPARKLINE ─────────────────────────────────────────────
+// Shared by the Trends "Best Lifts" list and the inline widget shown on each
+// exercise card during a workout. Returns the top weight lifted in each of
+// the last 10 FINISHED sessions that included this exercise, oldest first.
+function exerciseHistory(name) {
+  const hist = [];
+  Object.values(sessions).forEach(s=>{
+    if(!s.finishedAt) return;
+    s.exercises?.forEach(ex=>{
+      if(ex.name!==name) return;
+      const doneWeights = ex.sets.filter(st=>st.done&&st.weight>0).map(st=>st.weight);
+      if(!doneWeights.length) return;
+      hist.push({w:Math.max(...doneWeights), ts:s.finishedAt||s.startedAt||0});
+    });
+  });
+  return hist.sort((a,b)=>a.ts-b.ts).slice(-10).map(h=>h.w);
+}
+
+// Renders the low value / bar sparkline / high value cluster for a weight
+// history array. Pass highlightHigh:true to color the high value itself
+// (used for the #1 row in a ranked list) — bars at the peak are always
+// colored regardless.
+function sparklineHTML(hist, opts) {
+  opts = opts || {};
+  if(!hist.length) return '';
+  const low=Math.min(...hist), high=Math.max(...hist), range=high-low;
+  const bars=hist.map(w=>{
+    const h = hist.length>1 ? Math.round(4+(w-low)/(range||1)*16) : 20;
+    return `<div class="bl-bar${w===high?' pr':''}" style="height:${h}px;"></div>`;
+  }).join('');
+  return `<div class="bl-range"><div class="bl-low">${low}</div><div class="bl-spark">${bars}</div><div class="bl-high${opts.highlightHigh?' top':''}">${high}</div></div>`;
+}
+
 // ── TRENDS ────────────────────────────────────────────────────────────────────
 let chartInstances = {};
 let trendsRange = '4w';
@@ -1682,27 +1788,16 @@ function renderTrends() {
   chartInstances['vol-chart']=new Chart(document.getElementById('vol-chart'),chartCfg(volData,'#4a9cf0',Math.max(1,...volData)));
   // Best lifts — ranked list, each row showing the low/high weight across the
   // last 10 sessions that exercise appears in, with a bar sparkline of the trend.
-  const exHistory={};
-  allDone.forEach(s=>s.exercises?.forEach(ex=>{
-    const doneWeights=ex.sets.filter(st=>st.done&&st.weight>0).map(st=>st.weight);
-    if(!doneWeights.length) return;
-    (exHistory[ex.name]=exHistory[ex.name]||[]).push({w:Math.max(...doneWeights),ts:s.finishedAt||s.startedAt||0});
-  }));
   const bl=document.getElementById('best-lifts');
-  const exNames=Object.keys(exHistory);
-  if(!exNames.length){bl.innerHTML='<div style="font-size:12px;color:var(--text3);">Complete workouts to see your best lifts.</div>';return;}
-  const exRows=exNames.map(name=>{
-    const hist=exHistory[name].sort((a,b)=>a.ts-b.ts).slice(-10).map(h=>h.w);
-    return {name, hist, low:Math.min(...hist), high:Math.max(...hist)};
-  }).sort((a,b)=>b.high-a.high);
-  bl.innerHTML=exRows.map((row,i)=>{
-    const range=row.high-row.low;
-    const bars=row.hist.map(w=>{
-      const h=row.hist.length>1 ? Math.round(4+(w-row.low)/(range||1)*16) : 20;
-      return `<div class="bl-bar${w===row.high?' pr':''}" style="height:${h}px;"></div>`;
-    }).join('');
-    return `<div class="bl-row"><div class="bl-rank">${i+1}</div><div class="bl-name">${row.name}</div><div class="bl-range"><div class="bl-low">${row.low}</div><div class="bl-spark">${bars}</div><div class="bl-high${i===0?' top':''}">${row.high}</div></div></div>`;
-  }).join('');
+  const exNames=[...new Set(allDone.flatMap(s=>(s.exercises||[]).map(ex=>ex.name)))];
+  const exRows=exNames.map(name=>({name, hist:exerciseHistory(name)}))
+    .filter(r=>r.hist.length)
+    .map(r=>({...r, high:Math.max(...r.hist)}))
+    .sort((a,b)=>b.high-a.high);
+  if(!exRows.length){bl.innerHTML='<div style="font-size:12px;color:var(--text3);">Complete workouts to see your best lifts.</div>';return;}
+  bl.innerHTML=exRows.map((row,i)=>
+    `<div class="bl-row"><div class="bl-rank">${i+1}</div><div class="bl-name">${row.name}</div>${sparklineHTML(row.hist,{highlightHigh:i===0})}</div>`
+  ).join('');
 }
 
 // ── EXPORT / IMPORT ───────────────────────────────────────────────────────────
@@ -1805,9 +1900,11 @@ function renderLibrary() {
       row.className = 'lib-ex-row';
       row.innerHTML = `
         <div class="lib-ex-name">${name}</div>
+        <button class="lib-move-btn" id="lib-edit-${type}-${i}" title="Rename">✎</button>
         <button class="lib-move-btn" id="lib-up-${type}-${i}" ${i===0?'disabled':''}>▲</button>
         <button class="lib-move-btn" id="lib-dn-${type}-${i}" ${i===exs.length-1?'disabled':''}>▼</button>
         <button class="lib-del-btn" id="lib-del-${type}-${i}" title="Remove">✕</button>`;
+      row.querySelector('#lib-edit-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libRenameEx(type, i); });
       row.querySelector('#lib-up-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libMoveEx(type, i, -1); });
       row.querySelector('#lib-dn-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libMoveEx(type, i,  1); });
       row.querySelector('#lib-del-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libRemoveEx(type, i); });
@@ -1859,6 +1956,43 @@ function libRemoveEx(type, i) {
   saveLibrary();
   renderLibrary();
   showToast('Exercise removed');
+}
+
+// Rename an exercise everywhere it appears: past session data (so weight/rep
+// history stays associated with the exercise) and every active library list
+// (an exercise can legitimately appear in more than one category, e.g.
+// Pull-Ups in both upper and full). If newName already exists in a list, the
+// old entry is just dropped there instead of duplicated — renaming onto an
+// existing name is how two near-duplicate exercises get merged into one.
+function renameExerciseEverywhere(oldName, newName) {
+  if(!newName || newName===oldName) return false;
+  let changed = false;
+  Object.values(sessions).forEach(s=>s.exercises?.forEach(ex=>{
+    if(ex.name===oldName){ ex.name=newName; changed=true; }
+  }));
+  if(changed) save(SESSIONS_KEY, sessions);
+  ['upper','lower','full'].forEach(type=>{
+    const idx=(library[type]||[]).indexOf(oldName);
+    if(idx>=0){
+      if(library[type].includes(newName)) library[type].splice(idx,1);
+      else library[type][idx]=newName;
+      changed=true;
+    }
+  });
+  if(changed){ saveLibrary(); syncToSheets(); }
+  return changed;
+}
+
+function libRenameEx(type, i) {
+  const oldName = library[type][i];
+  const newName = prompt('Rename exercise', oldName);
+  if(newName==null) return;
+  const trimmed = newName.trim();
+  if(!trimmed || trimmed===oldName) return;
+  const merging = library[type].includes(trimmed);
+  renameExerciseEverywhere(oldName, trimmed);
+  renderLibrary();
+  showToast(merging ? `Merged into "${trimmed}"` : `Renamed to "${trimmed}"`);
 }
 
 function libAddEx(type) {
