@@ -422,12 +422,12 @@ body{display:flex;flex-direction:column;}
     <button class="trend-range-btn" data-range="all" onclick="setTrendsRange('all')">ALL</button>
   </div>
   <div class="trend-section">
-    <div class="trend-title" id="sessions-chart-title">WEEKLY SESSIONS</div>
-    <div class="chart-wrap"><div style="position:relative;height:130px;"><canvas id="sessions-chart"></canvas></div></div>
-  </div>
-  <div class="trend-section">
     <div class="trend-title" id="vol-chart-title">WEEKLY VOLUME (LBS)</div>
     <div class="chart-wrap"><div style="position:relative;height:130px;"><canvas id="vol-chart"></canvas></div></div>
+  </div>
+  <div class="trend-section">
+    <div class="trend-title" id="sessions-chart-title">WEEKLY SESSIONS</div>
+    <div class="chart-wrap"><div style="position:relative;height:130px;"><canvas id="sessions-chart"></canvas></div></div>
   </div>
   <div class="trend-section">
     <div class="trend-title">BEST LIFTS — TOP WEIGHT PER EXERCISE</div>
@@ -772,7 +772,7 @@ let currentDateKey = null;   // YYYY-MM-DD, kept for health log
 
 // Phase timers
 const PHASE_DUR = 5 * 60;
-let phases = { warmup: { running:false, remaining:PHASE_DUR, interval:null }, cooldown: { running:false, remaining:PHASE_DUR, interval:null } };
+let phases = { warmup: { running:false, remaining:PHASE_DUR, interval:null, endTime:null }, cooldown: { running:false, remaining:PHASE_DUR, interval:null, endTime:null } };
 
 // Drum picker state
 let drumTarget = null; // {ei, si, field}
@@ -1021,31 +1021,54 @@ function toggleWorkoutPause() {
 }
 
 // ── PHASE TIMERS ─────────────────────────────────────────────────────────────
+// Mobile browsers throttle/suspend setInterval while the screen is locked or
+// the app is backgrounded, so a timer that just decrements a counter each
+// tick effectively stalls. Instead we store an absolute endTime and derive
+// the remaining seconds from Date.now() on every tick — same approach the
+// main workout timer already uses — so it's always correct no matter how
+// many ticks were actually missed while backgrounded.
+function tickPhase(name) {
+  const p = phases[name];
+  const btn = document.getElementById(name+'-btn');
+  const timerEl = document.getElementById(name+'-timer');
+  const remaining = Math.max(0, Math.ceil((p.endTime - Date.now())/1000));
+  p.remaining = remaining;
+  const m = Math.floor(remaining/60), s = remaining%60;
+  timerEl.textContent = m+':'+(s<10?'0':'')+s;
+  if(remaining <= 0) {
+    clearInterval(p.interval); p.running = false;
+    timerEl.textContent = 'DONE ✓'; timerEl.className = 'phase-timer done';
+    btn.textContent = 'RESET'; btn.className = 'phase-btn';
+    if(navigator.vibrate) navigator.vibrate([200,100,200]);
+  }
+}
+
 function togglePhase(name) {
   const p = phases[name];
   const btn = document.getElementById(name+'-btn');
   const timerEl = document.getElementById(name+'-timer');
   if(p.running) {
     clearInterval(p.interval); p.running = false;
+    p.remaining = Math.max(0, Math.ceil((p.endTime - Date.now())/1000));
     btn.textContent = 'RESUME'; btn.className = 'phase-btn go';
   } else {
     if(p.remaining <= 0) { p.remaining = PHASE_DUR; timerEl.className='phase-timer'; }
+    p.endTime = Date.now() + p.remaining*1000;
     p.running = true;
     btn.textContent = 'STOP'; btn.className = 'phase-btn stop';
     timerEl.classList.add('running');
-    p.interval = setInterval(()=>{
-      p.remaining--;
-      const m = Math.floor(p.remaining/60), s = p.remaining%60;
-      timerEl.textContent = m+':'+(s<10?'0':'')+s;
-      if(p.remaining <= 0) {
-        clearInterval(p.interval); p.running = false;
-        timerEl.textContent = 'DONE ✓'; timerEl.className = 'phase-timer done';
-        btn.textContent = 'RESET'; btn.className = 'phase-btn';
-        if(navigator.vibrate) navigator.vibrate([200,100,200]);
-      }
-    }, 1000);
+    p.interval = setInterval(()=>tickPhase(name), 1000);
   }
 }
+
+// Force an immediate correct repaint of any running phase timer as soon as
+// the tab/app comes back to the foreground, rather than waiting up to 1s
+// for the next natural tick.
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible') {
+    ['warmup','cooldown'].forEach(name => { if(phases[name].running) tickPhase(name); });
+  }
+});
 
 // ── RENDER EXERCISES ─────────────────────────────────────────────────────────
 function renderExercises() {
@@ -1480,13 +1503,19 @@ function closeDrum() { closeOverlay('drum-overlay'); }
 function showAddExercise() { showOverlay('add-ex-overlay'); renderExSuggestions(''); setTimeout(()=>document.getElementById('ex-name-input').focus(),300); }
 function closeAddExercise() { closeOverlay('add-ex-overlay'); document.getElementById('ex-name-input').value=''; document.getElementById('ex-suggest-list').innerHTML=''; }
 
-// Autocomplete: show matching library exercises for the current workout type
-// as the user types. Selecting one fills the input; typing something that
-// matches nothing is still allowed — saveNewExercise() adds it as new.
+// The full library across all categories, deduplicated — suggestions during a
+// workout aren't limited to the current day's type, so e.g. a lower-body
+// exercise can still be picked on a full-body day.
+function allLibraryExercises() {
+  return [...new Set([...library.upper, ...library.lower, ...library.full])];
+}
+
+// Autocomplete: show matching library exercises (any category) as the user
+// types. Selecting one fills the input; typing something that matches
+// nothing is still allowed — saveNewExercise() adds it as new.
 function renderExSuggestions(filter) {
   const box = document.getElementById('ex-suggest-list');
-  const list = library[currentType];
-  if(!list){ box.innerHTML=''; return; }
+  const list = allLibraryExercises();
   const q = (filter||'').trim().toLowerCase();
   const matches = list.filter(n=>n.toLowerCase().includes(q)).slice(0,8);
   if(!matches.length){
@@ -1506,16 +1535,14 @@ function saveNewExercise() {
   const raw = document.getElementById('ex-name-input').value.trim();
   if(!raw) return;
   let name = raw;
-  const list = library[currentType];
-  if(list){
-    const existing = list.find(n=>n.toLowerCase()===raw.toLowerCase());
-    if(existing){
-      name = existing; // reuse existing casing instead of creating a near-duplicate
-    } else {
-      list.push(raw);
-      saveLibrary();
-      showToast('Added "'+raw+'" to your '+TEMPLATES[currentType].label+' library');
-    }
+  const existing = allLibraryExercises().find(n=>n.toLowerCase()===raw.toLowerCase());
+  if(existing){
+    name = existing; // reuse existing casing instead of creating a near-duplicate
+  } else if(library[currentType]) {
+    // Genuinely new — file it under today's workout type by default.
+    library[currentType].push(raw);
+    saveLibrary();
+    showToast('Added "'+raw+'" to your '+TEMPLATES[currentType].label+' library');
   }
   const prevSets = getLastSets(name);
   currentSession.exercises.push({ name, sets: prevSets });
@@ -1725,7 +1752,7 @@ function sparklineHTML(hist, opts) {
 
 // ── TRENDS ────────────────────────────────────────────────────────────────────
 let chartInstances = {};
-let trendsRange = '4w';
+let trendsRange = 'all';
 const TREND_RANGE_WEEKS = { '4w':4, '3m':13, '6m':26, '1y':52 };
 const TREND_RANGE_LABELS = { '4w':'LAST 4 WEEKS', '3m':'LAST 3 MONTHS', '6m':'LAST 6 MONTHS', '1y':'LAST YEAR', 'all':'ALL TIME' };
 
@@ -1774,18 +1801,25 @@ function renderTrends() {
     const slice = data.slice(Math.max(0, i-window+1), i+1);
     return slice.reduce((a,b)=>a+b,0) / slice.length;
   });
+  // Volume's average only counts weeks a workout actually happened — a rest
+  // week shouldn't drag the trend down the way it legitimately should for
+  // the sessions count. Sessions trendline is untouched (still counts zero weeks).
+  const movingAverageSkipRest = (data, window) => data.map((_, i) => {
+    const slice = data.slice(Math.max(0, i-window+1), i+1).filter(v=>v>0);
+    return slice.length ? slice.reduce((a,b)=>a+b,0)/slice.length : 0;
+  });
   const rangeLabel = TREND_RANGE_LABELS[trendsRange];
   document.getElementById('sessions-chart-title').textContent = 'WEEKLY SESSIONS — '+rangeLabel+' · '+maWindow+'w avg';
   document.getElementById('vol-chart-title').textContent = 'WEEKLY VOLUME (LBS) — '+rangeLabel+' · '+maWindow+'w avg';
   const dense = weekLabels.length > 16;
   const maxSessions = Math.max(4,...sessionData);
-  const chartCfg=(data,color,max)=>({data:{labels:weekLabels,datasets:[
+  const chartCfg=(data,lineData,color,max)=>({data:{labels:weekLabels,datasets:[
     {type:'bar',data,backgroundColor:color+'33',borderColor:color,borderWidth:1.5,borderRadius:3,order:2},
-    {type:'line',data:movingAverage(data,maWindow),borderColor:color,backgroundColor:color,borderWidth:2,pointRadius:dense?0:2,pointBackgroundColor:color,pointBorderColor:color,tension:0.3,fill:false,order:1}
+    {type:'line',data:lineData,borderColor:color,backgroundColor:color,borderWidth:2,pointRadius:dense?0:2,pointBackgroundColor:color,pointBorderColor:color,tension:0.3,fill:false,order:1}
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max,ticks:{color:'#545c66',font:{family:'DM Mono',size:9},stepSize:max<=6?1:undefined},grid:{color:'rgba(255,255,255,0.04)'},border:{display:false}},x:{ticks:{color:'#545c66',font:{family:'DM Mono',size:8},maxRotation:40,autoSkip:true,maxTicksLimit:dense?12:weekLabels.length},grid:{display:false},border:{display:false}}}}});
   ['sessions-chart','vol-chart'].forEach(id=>{if(chartInstances[id]){chartInstances[id].destroy();}});
-  chartInstances['sessions-chart']=new Chart(document.getElementById('sessions-chart'),chartCfg(sessionData,'#c8f04a',maxSessions));
-  chartInstances['vol-chart']=new Chart(document.getElementById('vol-chart'),chartCfg(volData,'#4a9cf0',Math.max(1,...volData)));
+  chartInstances['sessions-chart']=new Chart(document.getElementById('sessions-chart'),chartCfg(sessionData,movingAverage(sessionData,maWindow),'#c8f04a',maxSessions));
+  chartInstances['vol-chart']=new Chart(document.getElementById('vol-chart'),chartCfg(volData,movingAverageSkipRest(volData,maWindow),'#4a9cf0',Math.max(1,...volData)));
   // Best lifts — ranked list, each row showing the low/high weight across the
   // last 10 sessions that exercise appears in, with a bar sparkline of the trend.
   const bl=document.getElementById('best-lifts');
