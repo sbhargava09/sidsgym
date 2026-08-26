@@ -1651,14 +1651,25 @@ function renderTrends() {
     weekLabels.push(ws.toLocaleDateString('en-US',{month:'short',day:'numeric'}));
     sessionData.push(sc); volData.push(Math.round(wv));
   }
+  // Trailing moving average — like a stock chart's N-day average, adapted to
+  // our weekly buckets. Window scales with the visible range (wider window
+  // once there's enough history to smooth over) and is clamped to [2,12] so
+  // it's never a no-op and never so wide it flattens into a straight line.
+  // Uses however many prior weeks are available for the first few points
+  // (an expanding average) rather than leaving them blank.
+  const maWindow = Math.max(2, Math.min(12, Math.round(weeks/4)));
+  const movingAverage = (data, window) => data.map((_, i) => {
+    const slice = data.slice(Math.max(0, i-window+1), i+1);
+    return slice.reduce((a,b)=>a+b,0) / slice.length;
+  });
   const rangeLabel = TREND_RANGE_LABELS[trendsRange];
-  document.getElementById('sessions-chart-title').textContent = 'WEEKLY SESSIONS — '+rangeLabel;
-  document.getElementById('vol-chart-title').textContent = 'WEEKLY VOLUME (LBS) — '+rangeLabel;
+  document.getElementById('sessions-chart-title').textContent = 'WEEKLY SESSIONS — '+rangeLabel+' · '+maWindow+'w avg';
+  document.getElementById('vol-chart-title').textContent = 'WEEKLY VOLUME (LBS) — '+rangeLabel+' · '+maWindow+'w avg';
   const dense = weekLabels.length > 16;
   const maxSessions = Math.max(4,...sessionData);
   const chartCfg=(data,color,max)=>({data:{labels:weekLabels,datasets:[
     {type:'bar',data,backgroundColor:color+'33',borderColor:color,borderWidth:1.5,borderRadius:3,order:2},
-    {type:'line',data,borderColor:color,backgroundColor:color,borderWidth:2,pointRadius:dense?0:2,pointBackgroundColor:color,pointBorderColor:color,tension:0.3,fill:false,order:1}
+    {type:'line',data:movingAverage(data,maWindow),borderColor:color,backgroundColor:color,borderWidth:2,pointRadius:dense?0:2,pointBackgroundColor:color,pointBorderColor:color,tension:0.3,fill:false,order:1}
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max,ticks:{color:'#545c66',font:{family:'DM Mono',size:9},stepSize:max<=6?1:undefined},grid:{color:'rgba(255,255,255,0.04)'},border:{display:false}},x:{ticks:{color:'#545c66',font:{family:'DM Mono',size:8},maxRotation:40,autoSkip:true,maxTicksLimit:dense?12:weekLabels.length},grid:{display:false},border:{display:false}}}}});
   ['sessions-chart','vol-chart'].forEach(id=>{if(chartInstances[id]){chartInstances[id].destroy();}});
   chartInstances['sessions-chart']=new Chart(document.getElementById('sessions-chart'),chartCfg(sessionData,'#c8f04a',maxSessions));
