@@ -186,11 +186,17 @@ body{display:flex;flex-direction:column;}
 .trend-range-row{display:flex;gap:6px;margin-bottom:18px;}
 .trend-range-btn{flex:1;padding:7px 4px;border-radius:var(--rsm);border:1px solid var(--border2);background:var(--surf2);color:var(--text2);font-family:'DM Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.03em;cursor:pointer;transition:all 0.12s;}
 .trend-range-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
-.prog-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
-.prog-name{font-size:11px;color:var(--text2);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.prog-bar-bg{flex:2;height:5px;background:var(--surf3);border-radius:3px;overflow:hidden;}
-.prog-bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width 0.5s ease;}
-.prog-val{font-size:11px;font-family:'DM Mono',monospace;color:var(--text);font-weight:600;min-width:54px;text-align:right;}
+.bl-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border);}
+.bl-row:last-child{border-bottom:none;}
+.bl-rank{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);width:14px;flex-shrink:0;}
+.bl-name{font-size:13px;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bl-range{display:flex;align-items:flex-end;gap:8px;height:20px;flex-shrink:0;}
+.bl-low{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);line-height:1;}
+.bl-spark{display:flex;align-items:flex-end;gap:2px;height:20px;}
+.bl-bar{width:3px;border-radius:1px;background:var(--border2);}
+.bl-bar.pr{background:var(--accent);}
+.bl-high{font-family:'DM Mono',monospace;font-size:13px;color:var(--text);font-weight:600;line-height:1;align-self:flex-start;}
+.bl-high.top{color:var(--accent);}
 .empty{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px;line-height:2;}
 
 /* LIBRARY */
@@ -666,7 +672,7 @@ const METRICS_KEY  = 'sidsgym_custom_metrics';
 const BODY_KEY     = 'sidsgym_body'; // { height:{ft,in}, measurements:{key:[{val,date,ts}]} }
 const DELETED_SESSIONS_KEY = 'sidsgym_deleted_sessions'; // tombstones — ids deleted locally, so a merge-pull can't resurrect them
 const DATA_SCHEMA  = 3;
-const APP_VERSION  = 'v3.2';
+const APP_VERSION  = 'v4.0';
 
 // Default active lists — used only if no library exists yet in localStorage
 const DEFAULT_LIBRARY = {
@@ -1674,14 +1680,29 @@ function renderTrends() {
   ['sessions-chart','vol-chart'].forEach(id=>{if(chartInstances[id]){chartInstances[id].destroy();}});
   chartInstances['sessions-chart']=new Chart(document.getElementById('sessions-chart'),chartCfg(sessionData,'#c8f04a',maxSessions));
   chartInstances['vol-chart']=new Chart(document.getElementById('vol-chart'),chartCfg(volData,'#4a9cf0',Math.max(1,...volData)));
-  // Best lifts
-  const bests={};
-  allDone.forEach(s=>s.exercises?.forEach(ex=>ex.sets.filter(st=>st.done&&st.weight>0).forEach(st=>{if(!bests[ex.name]||st.weight>bests[ex.name])bests[ex.name]=st.weight;})));
+  // Best lifts — ranked list, each row showing the low/high weight across the
+  // last 10 sessions that exercise appears in, with a bar sparkline of the trend.
+  const exHistory={};
+  allDone.forEach(s=>s.exercises?.forEach(ex=>{
+    const doneWeights=ex.sets.filter(st=>st.done&&st.weight>0).map(st=>st.weight);
+    if(!doneWeights.length) return;
+    (exHistory[ex.name]=exHistory[ex.name]||[]).push({w:Math.max(...doneWeights),ts:s.finishedAt||s.startedAt||0});
+  }));
   const bl=document.getElementById('best-lifts');
-  const entries=Object.entries(bests).sort((a,b)=>b[1]-a[1]);
-  if(!entries.length){bl.innerHTML='<div style="font-size:12px;color:var(--text3);">Complete workouts to see your best lifts.</div>';return;}
-  const mx=entries[0][1];
-  bl.innerHTML=entries.map(([n,w])=>`<div class="prog-row"><div class="prog-name">${n}</div><div class="prog-bar-bg"><div class="prog-bar-fill" style="width:${Math.round(w/mx*100)}%"></div></div><div class="prog-val">${w} lbs</div></div>`).join('');
+  const exNames=Object.keys(exHistory);
+  if(!exNames.length){bl.innerHTML='<div style="font-size:12px;color:var(--text3);">Complete workouts to see your best lifts.</div>';return;}
+  const exRows=exNames.map(name=>{
+    const hist=exHistory[name].sort((a,b)=>a.ts-b.ts).slice(-10).map(h=>h.w);
+    return {name, hist, low:Math.min(...hist), high:Math.max(...hist)};
+  }).sort((a,b)=>b.high-a.high);
+  bl.innerHTML=exRows.map((row,i)=>{
+    const range=row.high-row.low;
+    const bars=row.hist.map(w=>{
+      const h=row.hist.length>1 ? Math.round(4+(w-row.low)/(range||1)*16) : 20;
+      return `<div class="bl-bar${w===row.high?' pr':''}" style="height:${h}px;"></div>`;
+    }).join('');
+    return `<div class="bl-row"><div class="bl-rank">${i+1}</div><div class="bl-name">${row.name}</div><div class="bl-range"><div class="bl-low">${row.low}</div><div class="bl-spark">${bars}</div><div class="bl-high${i===0?' top':''}">${row.high}</div></div></div>`;
+  }).join('');
 }
 
 // ── EXPORT / IMPORT ───────────────────────────────────────────────────────────
