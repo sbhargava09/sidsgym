@@ -182,6 +182,14 @@ body{display:flex;flex-direction:column;}
 .hist-metrics{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:8px;}
 .metric-pill{background:var(--surf2);border-radius:20px;padding:4px 10px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);}
 .metric-pill b{color:var(--text);}
+.hist-chevron{color:var(--text3);font-size:16px;transition:transform 0.2s;flex-shrink:0;padding:4px;cursor:pointer;}
+.hist-chevron.open{transform:rotate(90deg);}
+.hist-detail{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.hist-detail.open{display:block;}
+.hist-ex-row{margin-bottom:10px;}
+.hist-ex-row:last-child{margin-bottom:0;}
+.hist-ex-name{font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;}
+.hist-ex-sets{font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);}
 
 /* TRENDS PAGE */
 .trend-section{margin-bottom:22px;}
@@ -1608,6 +1616,8 @@ function sessionDisplayDate(s) {
 
 function renderHistory() {
   const list = document.getElementById('history-list');
+  const openKeys = new Set();
+  document.querySelectorAll('.hist-detail.open').forEach(el=>openKeys.add(el.id.replace('hist-detail-','')));
   const entries = Object.entries(sessions).filter(([,s])=>s.finishedAt).sort((a,b)=>b[1].finishedAt-a[1].finishedAt);
   if(!entries.length){list.innerHTML='<div class="empty">No sessions yet.</div>';return;}
   list.innerHTML = entries.map(([k,s])=>{
@@ -1663,19 +1673,31 @@ function renderHistory() {
     const sets=s.exercises?.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).length,0)||0;
     const colors={upper:'var(--blue)',lower:'var(--orange)',full:'var(--accent)'};
     const typeColor=colors[s.type]||'var(--text)';
+    const detailRows=(s.exercises||[]).map(ex=>{
+      const doneSets=ex.sets.filter(st=>st.done);
+      if(!doneSets.length) return '';
+      const setsStr=doneSets.map(st=>`${st.weight}×${st.reps}`).join(', ');
+      return `<div class="hist-ex-row"><div class="hist-ex-name">${ex.name}</div><div class="hist-ex-sets">${setsStr}</div></div>`;
+    }).join('');
+    const isOpen=openKeys.has(k);
+    const chevronHtml=detailRows?`<div class="hist-chevron${isOpen?' open':''}" id="hist-chev-${k}" onclick="toggleHistoryDetail('${k}')">›</div>`:'';
     return `<div class="hist-card" id="hcard-${k}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-        <div>
+        <div${detailRows?` style="cursor:pointer;" onclick="toggleHistoryDetail('${k}')"`:''}>
           <div class="hist-date">${displayDate}</div>
           <div class="hist-type" style="color:${typeColor}">${TEMPLATES[s.type]?.label||s.type}</div>
         </div>
-        <button id="del-btn-${k}" onclick="confirmDelete('${k}')" style="background:none;border:none;color:var(--text3);font-size:18px;padding:4px 6px;cursor:pointer;line-height:1;flex-shrink:0;">✕</button>
+        <div style="display:flex;align-items:center;gap:2px;">
+          ${chevronHtml}
+          <button id="del-btn-${k}" onclick="event.stopPropagation(); confirmDelete('${k}')" style="background:none;border:none;color:var(--text3);font-size:18px;padding:4px 6px;cursor:pointer;line-height:1;flex-shrink:0;">✕</button>
+        </div>
       </div>
       <div class="hist-stats">
         <div class="hist-stat"><span>${sets}</span> sets</div>
         <div class="hist-stat"><span>${vol.toLocaleString()}</span> lbs</div>
         ${dur?`<div class="hist-stat"><span>${dur}</span> min</div>`:''}
       </div>${metricHtml}
+      ${detailRows?`<div class="hist-detail${isOpen?' open':''}" id="hist-detail-${k}">${detailRows}</div>`:''}
       <div id="del-confirm-${k}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
         <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Delete this workout permanently?</div>
         <div style="display:flex;gap:8px;">
@@ -1685,6 +1707,14 @@ function renderHistory() {
       </div>
     </div>`;
   }).join('');
+}
+
+function toggleHistoryDetail(k) {
+  const detail = document.getElementById('hist-detail-'+k);
+  const chev = document.getElementById('hist-chev-'+k);
+  if(!detail) return;
+  const open = detail.classList.toggle('open');
+  if(chev) chev.classList.toggle('open', open);
 }
 
 function confirmDelete(k) {
