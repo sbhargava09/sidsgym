@@ -173,6 +173,10 @@ body{display:flex;flex-direction:column;}
 .metric-input:focus{outline:none;border-color:var(--accent);}
 
 /* HISTORY PAGE */
+.log-tally{display:flex;gap:8px;margin-bottom:14px;}
+.log-tally-pill{flex:1;min-width:0;background:var(--surf);border:1px solid var(--border);border-radius:var(--rsm);padding:10px 6px;text-align:center;}
+.log-tally-label{font-size:9px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.06em;margin-bottom:4px;}
+.log-tally-count{font-size:18px;font-weight:800;font-family:'Syne',sans-serif;}
 .hist-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;}
 .hist-date{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);margin-bottom:5px;}
 .hist-type{font-size:16px;font-weight:800;margin-bottom:8px;}
@@ -417,6 +421,7 @@ body{display:flex;flex-direction:column;}
 
 <!-- LOG -->
 <div class="page" id="page-history">
+  <div class="log-tally" id="log-tally"></div>
   <div id="history-list"><div class="empty">No sessions yet.<br>Complete a workout to see it here.</div></div>
 </div>
 
@@ -685,7 +690,7 @@ const METRICS_KEY  = 'sidsgym_custom_metrics';
 const BODY_KEY     = 'sidsgym_body'; // { height:{ft,in}, measurements:{key:[{val,date,ts}]} }
 const DELETED_SESSIONS_KEY = 'sidsgym_deleted_sessions'; // tombstones — ids deleted locally, so a merge-pull can't resurrect them
 const DATA_SCHEMA  = 3;
-const APP_VERSION  = 'v4.0';
+const APP_VERSION  = 'v4.1';
 
 // Default active lists — used only if no library exists yet in localStorage
 const DEFAULT_LIBRARY = {
@@ -1619,6 +1624,15 @@ function renderHistory() {
   const openKeys = new Set();
   document.querySelectorAll('.hist-detail.open').forEach(el=>openKeys.add(el.id.replace('hist-detail-','')));
   const entries = Object.entries(sessions).filter(([,s])=>s.finishedAt).sort((a,b)=>b[1].finishedAt-a[1].finishedAt);
+
+  const tally = { upper:0, lower:0, full:0, cardio:0 };
+  entries.forEach(([,s])=>{ if(tally[s.type]!=null) tally[s.type]++; });
+  document.getElementById('log-tally').innerHTML = `
+    <div class="log-tally-pill"><div class="log-tally-label">UPPER</div><div class="log-tally-count" style="color:var(--blue)">${tally.upper}</div></div>
+    <div class="log-tally-pill"><div class="log-tally-label">LOWER</div><div class="log-tally-count" style="color:var(--orange)">${tally.lower}</div></div>
+    <div class="log-tally-pill"><div class="log-tally-label">FULL</div><div class="log-tally-count" style="color:var(--accent)">${tally.full}</div></div>
+    <div class="log-tally-pill"><div class="log-tally-label">CARDIO</div><div class="log-tally-count" style="color:var(--green)">${tally.cardio}</div></div>`;
+
   if(!entries.length){list.innerHTML='<div class="empty">No sessions yet.</div>';return;}
   list.innerHTML = entries.map(([k,s])=>{
     const dur = s.duration ? Math.round(s.duration/60) : null;
@@ -1671,6 +1685,7 @@ function renderHistory() {
     // Strength session
     const vol=s.exercises?.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0)||0;
     const sets=s.exercises?.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).length,0)||0;
+    const exCount=s.exercises?.filter(ex=>ex.sets.some(st=>st.done)).length||0;
     const colors={upper:'var(--blue)',lower:'var(--orange)',full:'var(--accent)'};
     const typeColor=colors[s.type]||'var(--text)';
     const detailRows=(s.exercises||[]).map(ex=>{
@@ -1693,6 +1708,7 @@ function renderHistory() {
         </div>
       </div>
       <div class="hist-stats">
+        <div class="hist-stat"><span>${exCount}</span> exercises</div>
         <div class="hist-stat"><span>${sets}</span> sets</div>
         <div class="hist-stat"><span>${vol.toLocaleString()}</span> lbs</div>
         ${dur?`<div class="hist-stat"><span>${dur}</span> min</div>`:''}
