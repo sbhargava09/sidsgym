@@ -688,7 +688,7 @@ const METRICS_KEY  = 'sidsgym_custom_metrics';
 const BODY_KEY     = 'sidsgym_body'; // { height:{ft,in}, measurements:{key:[{val,date,ts}]} }
 const DELETED_SESSIONS_KEY = 'sidsgym_deleted_sessions'; // tombstones — ids deleted locally, so a merge-pull can't resurrect them
 const DATA_SCHEMA  = 3;
-const APP_VERSION  = 'v4.2';
+const APP_VERSION  = 'v4.3';
 
 // Firebase project config — safe to keep public; the RTDB security rules
 // (database.rules.json) are the actual access gate, not this object.
@@ -898,7 +898,7 @@ let drumTarget = null; // {ei, si, field}
 let drumTab = 'weight';
 let drumWeightVal = 50;
 let drumRepsVal = 12;
-const WEIGHTS = Array.from({length:41}, (_,i) => i*5); // 0..200
+const WEIGHTS = Array.from({length:81}, (_,i) => i*5); // 0..400
 const REPS = Array.from({length:120}, (_,i) => i+1); // 1..120
 
 // Drag state
