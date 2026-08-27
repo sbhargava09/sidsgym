@@ -158,10 +158,14 @@ body{display:flex;flex-direction:column;}
 .sheet-close{font-size:22px;color:var(--text3);cursor:pointer;padding:4px;}
 .sheet-input{background:var(--surf2);border:1px solid var(--border2);border-radius:var(--rsm);padding:12px 14px;font-size:16px;color:var(--text);font-family:'Syne',sans-serif;width:calc(100% - 40px);margin:0 20px 12px;display:block;}
 .sheet-input:focus{outline:none;border-color:var(--accent);}
-.ex-suggest-list{margin:0 20px 12px;display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;}
-.ex-suggest-item{background:var(--surf2);border:1px solid var(--border2);border-radius:var(--rsm);padding:10px 14px;font-size:14px;color:var(--text);cursor:pointer;}
+.ex-suggest-list{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;margin-bottom:12px;}
+.add-ex-sheet .ex-suggest-list{margin:0 20px 12px;}
+.ex-suggest-item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surf2);border:1px solid var(--border2);border-radius:var(--rsm);padding:10px 14px;font-size:14px;color:var(--text);cursor:pointer;}
 .ex-suggest-item:active{background:var(--surf3);}
+.ex-suggest-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ex-suggest-tag{font-size:10px;font-family:'DM Mono',monospace;letter-spacing:0.05em;flex-shrink:0;}
 .ex-suggest-empty{font-size:12px;color:var(--text3);padding:2px 2px 0;}
+.ex-suggest-additem{background:var(--accent);color:#000;border-radius:var(--rsm);padding:12px 14px;font-size:13px;font-weight:800;text-align:center;cursor:pointer;}
 .sheet-save-btn{margin:4px 20px 0;width:calc(100% - 40px);padding:14px;border-radius:var(--r);border:none;background:var(--accent);color:#000;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;cursor:pointer;}
 
 /* METRICS OVERLAY */
@@ -222,13 +226,6 @@ body{display:flex;flex-direction:column;}
 .lib-move-btn:active{background:var(--surf3);color:var(--text);}
 .lib-move-btn:disabled{opacity:0.2;pointer-events:none;}
 .lib-del-btn{background:var(--red-dim);border:none;border-radius:4px;color:var(--red);font-size:14px;width:26px;height:26px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;}
-.bank-title{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.07em;margin:12px 0 8px;}
-.bank-pills{display:flex;flex-wrap:wrap;gap:6px;}
-.bank-pill{padding:6px 12px;border-radius:20px;border:1px solid var(--border2);background:var(--surf2);color:var(--text2);font-family:'Syne',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.12s;}
-.bank-pill:active{background:var(--surf3);}
-.bank-pill.in-list{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
-.bank-pill.in-list-blue{border-color:var(--blue);color:var(--blue);background:var(--blue-dim);}
-.bank-pill.in-list-orange{border-color:var(--orange);color:var(--orange);background:var(--orange-dim);}
 /* MEASUREMENTS */
 .meas-diagram-wrap{position:relative;width:100%;max-width:340px;margin:0 auto 16px;}
 .meas-diagram-wrap svg{width:100%;height:auto;display:block;}
@@ -500,18 +497,14 @@ body{display:flex;flex-direction:column;}
 <!-- LIBRARY -->
 <div class="page" id="page-library">
   <div style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6;">
-    Your active list loads into each workout. Tap a pill to add/remove from your active list. Type anything custom in the box. Changes take effect next time you start a workout.
+    Your active list loads into each workout. Search to add from the full exercise catalog, or type something new — either way it's added to this list. Changes take effect next time you start a workout.
   </div>
 
   <div id="lib-upper-section" class="lib-section">
     <div class="sec-label" style="margin-bottom:8px;"><span style="color:var(--blue);">🏋️ UPPER BODY — ACTIVE LIST</span></div>
     <div id="lib-upper-list"></div>
-    <div style="display:flex;gap:8px;margin-top:8px;">
-      <input id="lib-upper-input" class="sheet-input" style="margin:0;flex:1;font-size:14px;padding:10px 12px;" placeholder="Type custom exercise..." type="text" onkeydown="if(event.key==='Enter')libAddEx('upper')">
-      <button onclick="libAddEx('upper')" style="padding:10px 16px;border-radius:var(--rsm);border:none;background:var(--blue-dim);color:var(--blue);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">Add</button>
-    </div>
-    <div class="bank-title">EXERCISE BANK — tap to add · tap again to remove</div>
-    <div class="bank-pills" id="bank-upper"></div>
+    <input id="lib-add-input-upper" class="sheet-input" style="margin:8px 0 0;font-size:14px;padding:10px 12px;width:100%;box-sizing:border-box;" placeholder="Search, #chest, or add new..." type="text" autocomplete="off" oninput="renderLibAddSuggestions('upper',this.value)">
+    <div class="ex-suggest-list" id="lib-add-suggest-upper"></div>
   </div>
 
   <div style="height:1px;background:var(--border);margin:20px 0;"></div>
@@ -519,12 +512,8 @@ body{display:flex;flex-direction:column;}
   <div id="lib-lower-section" class="lib-section">
     <div class="sec-label" style="margin-bottom:8px;"><span style="color:var(--orange);">🦵 LOWER BODY — ACTIVE LIST</span></div>
     <div id="lib-lower-list"></div>
-    <div style="display:flex;gap:8px;margin-top:8px;">
-      <input id="lib-lower-input" class="sheet-input" style="margin:0;flex:1;font-size:14px;padding:10px 12px;" placeholder="Type custom exercise..." type="text" onkeydown="if(event.key==='Enter')libAddEx('lower')">
-      <button onclick="libAddEx('lower')" style="padding:10px 16px;border-radius:var(--rsm);border:none;background:var(--orange-dim);color:var(--orange);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">Add</button>
-    </div>
-    <div class="bank-title">EXERCISE BANK — tap to add · tap again to remove</div>
-    <div class="bank-pills" id="bank-lower"></div>
+    <input id="lib-add-input-lower" class="sheet-input" style="margin:8px 0 0;font-size:14px;padding:10px 12px;width:100%;box-sizing:border-box;" placeholder="Search, #chest, or add new..." type="text" autocomplete="off" oninput="renderLibAddSuggestions('lower',this.value)">
+    <div class="ex-suggest-list" id="lib-add-suggest-lower"></div>
   </div>
 
   <div style="height:1px;background:var(--border);margin:20px 0;"></div>
@@ -532,12 +521,8 @@ body{display:flex;flex-direction:column;}
   <div id="lib-full-section" class="lib-section">
     <div class="sec-label" style="margin-bottom:8px;"><span style="color:var(--accent);">🔥 FULL BODY — ACTIVE LIST</span></div>
     <div id="lib-full-list"></div>
-    <div style="display:flex;gap:8px;margin-top:8px;">
-      <input id="lib-full-input" class="sheet-input" style="margin:0;flex:1;font-size:14px;padding:10px 12px;" placeholder="Type custom exercise..." type="text" onkeydown="if(event.key==='Enter')libAddEx('full')">
-      <button onclick="libAddEx('full')" style="padding:10px 16px;border-radius:var(--rsm);border:none;background:var(--accent-dim);color:var(--accent);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">Add</button>
-    </div>
-    <div class="bank-title">EXERCISE BANK — tap to add · tap again to remove</div>
-    <div class="bank-pills" id="bank-full"></div>
+    <input id="lib-add-input-full" class="sheet-input" style="margin:8px 0 0;font-size:14px;padding:10px 12px;width:100%;box-sizing:border-box;" placeholder="Search, #chest, or add new..." type="text" autocomplete="off" oninput="renderLibAddSuggestions('full',this.value)">
+    <div class="ex-suggest-list" id="lib-add-suggest-full"></div>
   </div>
 </div>
 
@@ -650,7 +635,7 @@ body{display:flex;flex-direction:column;}
       <div style="font-size:15px;font-weight:700;">Add Exercise</div>
       <div class="sheet-close" onclick="closeAddExercise()">✕</div>
     </div>
-    <input class="sheet-input" id="ex-name-input" placeholder="Exercise name" type="text" autocomplete="off" oninput="renderExSuggestions(this.value)">
+    <input class="sheet-input" id="ex-name-input" placeholder="Search or #chest..." type="text" autocomplete="off" oninput="renderExSuggestions(this.value)">
     <div class="ex-suggest-list" id="ex-suggest-list"></div>
     <button class="sheet-save-btn" onclick="saveNewExercise()">ADD TO WORKOUT</button>
   </div>
@@ -690,7 +675,7 @@ const METRICS_KEY  = 'sidsgym_custom_metrics';
 const BODY_KEY     = 'sidsgym_body'; // { height:{ft,in}, measurements:{key:[{val,date,ts}]} }
 const DELETED_SESSIONS_KEY = 'sidsgym_deleted_sessions'; // tombstones — ids deleted locally, so a merge-pull can't resurrect them
 const DATA_SCHEMA  = 3;
-const APP_VERSION  = 'v4.1';
+const APP_VERSION  = 'v4.2';
 
 // Default active lists — used only if no library exists yet in localStorage
 const DEFAULT_LIBRARY = {
@@ -700,39 +685,130 @@ const DEFAULT_LIBRARY = {
 };
 
 // Full exercise bank — browse and tap to add to active list
-const EXERCISE_BANK = {
-  upper: [
-    'Barbell Bench Press','Incline DB Press','Decline Bench Press','Dumbbell Flyes','Cable Crossover',
-    'Barbell Row','DB Single-Arm Row','Cable Row','T-Bar Row','Chest-Supported Row',
-    'Overhead Press (DB)','Barbell Overhead Press','Arnold Press','Lateral Raises','Front Raises',
-    'Pull-Ups','Chin-Ups','Lat Pulldown','Straight-Arm Pulldown','Face Pulls',
-    'Dumbbell Curl','Barbell Curl','Hammer Curl','Preacher Curl','Cable Curl',
-    'Tricep Band Pushdown','Skull Crushers','Overhead Tricep Extension','Close-Grip Bench Press','Dips',
-    'Shrugs','Upright Row','Rear Delt Flyes','Incline Curl','Concentration Curl',
-    'Lat Rows','Biceps Cable Curls','Triceps Pushdown','Dumbbell Bench Press','Barbell Shoulder Press',
-    'Barbell biceps curl','Dumbbell Incline Bench press','Hammer Curls with Weight','Dumbbell Shoulder Press',
-    'Dumbbell rows','Deltoids Superset','Single-Arm Dumbbell curl'
-  ],
-  lower: [
-    'Barbell Squat','Front Squat','Hack Squat','Leg Press','Smith Machine Squat',
-    'Romanian Deadlift','Conventional Deadlift','Sumo Deadlift','Good Mornings','Glute Bridge',
-    'Walking DB Lunges','Reverse Lunges','Bulgarian Split Squat','Step-Ups','Lateral Lunges',
-    'Leg Curl (Machine)','Lying Leg Curl','Nordic Hamstring Curl','Seated Leg Curl','Single-Leg Deadlift',
-    'Calf Raises','Seated Calf Raise','Donkey Calf Raise','Single-Leg Calf Raise','Box Jumps',
-    'Ab Wheel Rollout','Hanging Leg Raise','Cable Crunch','Plank','Dead Bug',
-    'Band Hip Abduction','Hip Thrust','Banded Clamshell','Side-Lying Hip Abduction','Glute Kickback',
-    'Squats','Leg Extension','Calves Machine','Oblique abs','Crunches'
-  ],
-  full: [
-    'Barbell Deadlift','Trap Bar Deadlift','Power Clean','Kettlebell Swing','Clean and Press',
-    'Dumbbell Press','Push Press','Landmine Press','Single-Arm KB Press','Seated DB Press',
-    'Goblet Squat (DB)','Barbell Squat','Zercher Squat','KB Front Squat','Pause Squat',
-    'Pull-Ups','TRX Row','Renegade Row','Single-Arm Row','Meadows Row',
-    'DB Lateral Raises','Cuban Press','Band Pull-Apart','Plate Front Raise','Y-T-W Raise',
-    'Ab Wheel Rollout','Turkish Get-Up','Farmers Carry','Suitcase Carry','Pallof Press',
-    'Burpees','Thrusters','Bear Complex','Man Makers','Battle Ropes'
-  ]
+// Master exercise catalog — a flat, muscle-group-tagged reference used by the
+// search/autocomplete both when adding an exercise mid-workout and from the
+// Library page. It's independent of upper/lower/full: any exercise here can
+// be added to any active list, whichever section's search you use. Not shown
+// as a standing list anywhere — it only ever surfaces through search results,
+// so it can grow without cluttering the UI.
+const MUSCLE_GROUPS = ['Chest','Back','Shoulders','Biceps','Triceps','Quads','Hamstrings','Glutes','Calves','Core'];
+const MUSCLE_GROUP_COLORS = {
+  Chest:'#4a9cf0', Back:'#7c8cf0', Shoulders:'#c17af0', Biceps:'#e07ad6', Triceps:'#f07a9c',
+  Quads:'#f0a84a', Hamstrings:'#f0c14a', Glutes:'#d6b34a', Calves:'#b3906a', Core:'#4af0a0'
 };
+const EXERCISE_BANK = [
+  // Chest
+  {name:'Barbell Bench Press',group:'Chest'},{name:'Incline Barbell Bench Press',group:'Chest'},
+  {name:'Decline Barbell Bench Press',group:'Chest'},{name:'Dumbbell Bench Press',group:'Chest'},
+  {name:'Incline Dumbbell Press',group:'Chest'},{name:'Decline Dumbbell Press',group:'Chest'},
+  {name:'Dumbbell Flyes',group:'Chest'},{name:'Incline Dumbbell Flyes',group:'Chest'},
+  {name:'Cable Crossover',group:'Chest'},{name:'Cable Fly',group:'Chest'},
+  {name:'Pec Deck Machine',group:'Chest'},{name:'Chest Press Machine',group:'Chest'},
+  {name:'Push-Ups',group:'Chest'},{name:'Incline Push-Ups',group:'Chest'},
+  {name:'Decline Push-Ups',group:'Chest'},{name:'Landmine Press',group:'Chest'},
+  {name:'Svend Press',group:'Chest'},{name:'Machine Fly',group:'Chest'},
+  {name:'Smith Machine Bench Press',group:'Chest'},{name:'Floor Press',group:'Chest'},
+  // Back
+  {name:'Barbell Row',group:'Back'},{name:'Pendlay Row',group:'Back'},
+  {name:'T-Bar Row',group:'Back'},{name:'Cable Row',group:'Back'},
+  {name:'Chest-Supported Row',group:'Back'},{name:'DB Single-Arm Row',group:'Back'},
+  {name:'Two-Arm Dumbbell Row',group:'Back'},{name:'Seal Row',group:'Back'},
+  {name:'Lat Pulldown',group:'Back'},{name:'Wide-Grip Lat Pulldown',group:'Back'},
+  {name:'Close-Grip Lat Pulldown',group:'Back'},{name:'Straight-Arm Pulldown',group:'Back'},
+  {name:'Pull-Ups',group:'Back'},{name:'Chin-Ups',group:'Back'},
+  {name:'Assisted Pull-Up Machine',group:'Back'},{name:'Deadlift',group:'Back'},
+  {name:'Trap Bar Deadlift',group:'Back'},{name:'Rack Pull',group:'Back'},
+  {name:'Face Pulls',group:'Back'},{name:'Meadows Row',group:'Back'},
+  // Shoulders
+  {name:'Barbell Overhead Press',group:'Shoulders'},{name:'Dumbbell Shoulder Press',group:'Shoulders'},
+  {name:'Arnold Press',group:'Shoulders'},{name:'Seated Barbell Press',group:'Shoulders'},
+  {name:'Push Press',group:'Shoulders'},{name:'Lateral Raises',group:'Shoulders'},
+  {name:'Cable Lateral Raise',group:'Shoulders'},{name:'Front Raises',group:'Shoulders'},
+  {name:'Rear Delt Flyes',group:'Shoulders'},{name:'Reverse Pec Deck',group:'Shoulders'},
+  {name:'Upright Row',group:'Shoulders'},{name:'Cable Face Pull',group:'Shoulders'},
+  {name:'Landmine Shoulder Press',group:'Shoulders'},{name:'Machine Shoulder Press',group:'Shoulders'},
+  {name:'Bradford Press',group:'Shoulders'},{name:'Cuban Press',group:'Shoulders'},
+  {name:'Y-Raise',group:'Shoulders'},{name:'Plate Front Raise',group:'Shoulders'},
+  {name:'Shrugs',group:'Shoulders'},{name:'Band Pull-Apart',group:'Shoulders'},
+  // Biceps
+  {name:'Barbell Curl',group:'Biceps'},{name:'EZ-Bar Curl',group:'Biceps'},
+  {name:'Dumbbell Curl',group:'Biceps'},{name:'Hammer Curl',group:'Biceps'},
+  {name:'Preacher Curl',group:'Biceps'},{name:'Cable Curl',group:'Biceps'},
+  {name:'Incline Dumbbell Curl',group:'Biceps'},{name:'Concentration Curl',group:'Biceps'},
+  {name:'Spider Curl',group:'Biceps'},{name:'Cable Rope Hammer Curl',group:'Biceps'},
+  {name:'Zottman Curl',group:'Biceps'},{name:'Drag Curl',group:'Biceps'},
+  {name:'21s Bicep Curl',group:'Biceps'},{name:'Machine Bicep Curl',group:'Biceps'},
+  {name:'Single-Arm Cable Curl',group:'Biceps'},{name:'Reverse Curl',group:'Biceps'},
+  {name:'Cross-Body Hammer Curl',group:'Biceps'},{name:'Overhead Cable Curl',group:'Biceps'},
+  {name:'Waiter Curl',group:'Biceps'},{name:'Bayesian Cable Curl',group:'Biceps'},
+  // Triceps
+  {name:'Close-Grip Bench Press',group:'Triceps'},{name:'Skull Crushers',group:'Triceps'},
+  {name:'Overhead Tricep Extension',group:'Triceps'},{name:'Tricep Pushdown',group:'Triceps'},
+  {name:'Rope Pushdown',group:'Triceps'},{name:'Dips',group:'Triceps'},
+  {name:'Bench Dips',group:'Triceps'},{name:'Tricep Kickbacks',group:'Triceps'},
+  {name:'JM Press',group:'Triceps'},{name:'Diamond Push-Ups',group:'Triceps'},
+  {name:'Cable Overhead Extension',group:'Triceps'},{name:'Single-Arm Pushdown',group:'Triceps'},
+  {name:'Machine Tricep Extension',group:'Triceps'},{name:'Tate Press',group:'Triceps'},
+  {name:'French Press',group:'Triceps'},{name:'Reverse-Grip Pushdown',group:'Triceps'},
+  {name:'Dumbbell Overhead Extension',group:'Triceps'},{name:'Board Press',group:'Triceps'},
+  {name:'Floor Skull Crushers',group:'Triceps'},{name:'Band Pushdown',group:'Triceps'},
+  // Quads
+  {name:'Barbell Squat',group:'Quads'},{name:'Front Squat',group:'Quads'},
+  {name:'Hack Squat',group:'Quads'},{name:'Leg Press',group:'Quads'},
+  {name:'Smith Machine Squat',group:'Quads'},{name:'Goblet Squat',group:'Quads'},
+  {name:'Bulgarian Split Squat',group:'Quads'},{name:'Walking DB Lunges',group:'Quads'},
+  {name:'Reverse Lunges',group:'Quads'},{name:'Step-Ups',group:'Quads'},
+  {name:'Leg Extension',group:'Quads'},{name:'Zercher Squat',group:'Quads'},
+  {name:'Pause Squat',group:'Quads'},{name:'Sissy Squat',group:'Quads'},
+  {name:'Belt Squat',group:'Quads'},{name:'Box Squat',group:'Quads'},
+  {name:'Lateral Lunges',group:'Quads'},{name:'Wall Sit',group:'Quads'},
+  {name:'Squats',group:'Quads'},{name:'Pistol Squat',group:'Quads'},
+  // Hamstrings
+  {name:'Romanian Deadlift',group:'Hamstrings'},{name:'Conventional Deadlift',group:'Hamstrings'},
+  {name:'Sumo Deadlift',group:'Hamstrings'},{name:'Good Mornings',group:'Hamstrings'},
+  {name:'Leg Curl (Machine)',group:'Hamstrings'},{name:'Lying Leg Curl',group:'Hamstrings'},
+  {name:'Seated Leg Curl',group:'Hamstrings'},{name:'Nordic Hamstring Curl',group:'Hamstrings'},
+  {name:'Single-Leg Deadlift',group:'Hamstrings'},{name:'Stiff-Leg Deadlift',group:'Hamstrings'},
+  {name:'Glute-Ham Raise',group:'Hamstrings'},{name:'Cable Pull-Through',group:'Hamstrings'},
+  {name:'Kettlebell Swing',group:'Hamstrings'},{name:'Single-Leg RDL',group:'Hamstrings'},
+  {name:'Banded Leg Curl',group:'Hamstrings'},{name:'Swiss Ball Leg Curl',group:'Hamstrings'},
+  {name:'Reverse Hyperextension',group:'Hamstrings'},{name:'Snatch-Grip Deadlift',group:'Hamstrings'},
+  {name:'Trap Bar RDL',group:'Hamstrings'},{name:'Stability Ball Hamstring Curl',group:'Hamstrings'},
+  // Glutes
+  {name:'Hip Thrust',group:'Glutes'},{name:'Glute Bridge',group:'Glutes'},
+  {name:'Cable Glute Kickback',group:'Glutes'},{name:'Glute Kickback Machine',group:'Glutes'},
+  {name:'Band Hip Abduction',group:'Glutes'},{name:'Banded Clamshell',group:'Glutes'},
+  {name:'Side-Lying Hip Abduction',group:'Glutes'},{name:'Single-Leg Hip Thrust',group:'Glutes'},
+  {name:'Frog Pumps',group:'Glutes'},{name:'Curtsy Lunge',group:'Glutes'},
+  {name:'Sumo Squat',group:'Glutes'},{name:'Donkey Kicks',group:'Glutes'},
+  {name:'Fire Hydrants',group:'Glutes'},{name:'Hip Abduction Machine',group:'Glutes'},
+  {name:'B-Stance Hip Thrust',group:'Glutes'},{name:'Barbell Glute Bridge',group:'Glutes'},
+  {name:'Cable Standing Kickback',group:'Glutes'},{name:'Reverse Lunge to Kickback',group:'Glutes'},
+  {name:'Monster Walk',group:'Glutes'},{name:'Glute Focused Step-Up',group:'Glutes'},
+  // Calves
+  {name:'Calf Raises',group:'Calves'},{name:'Seated Calf Raise',group:'Calves'},
+  {name:'Standing Calf Raise Machine',group:'Calves'},{name:'Donkey Calf Raise',group:'Calves'},
+  {name:'Single-Leg Calf Raise',group:'Calves'},{name:'Leg Press Calf Raise',group:'Calves'},
+  {name:'Smith Machine Calf Raise',group:'Calves'},{name:'Calves Machine',group:'Calves'},
+  {name:'Dumbbell Calf Raise',group:'Calves'},{name:'Barbell Calf Raise',group:'Calves'},
+  {name:'Seated Dumbbell Calf Raise',group:'Calves'},{name:'Jump Rope',group:'Calves'},
+  {name:'Box Jumps',group:'Calves'},{name:'Tibia Raise',group:'Calves'},
+  {name:"Farmer's Walk on Toes",group:'Calves'},{name:'Bent-Knee Calf Raise',group:'Calves'},
+  {name:'Explosive Calf Hops',group:'Calves'},{name:'Single-Leg Hop',group:'Calves'},
+  {name:'Eccentric Calf Raise',group:'Calves'},{name:'Calf Press on Leg Press Machine',group:'Calves'},
+  // Core
+  {name:'Ab Wheel Rollout',group:'Core'},{name:'Plank',group:'Core'},
+  {name:'Side Plank',group:'Core'},{name:'Hanging Leg Raise',group:'Core'},
+  {name:'Cable Crunch',group:'Core'},{name:'Crunches',group:'Core'},
+  {name:'Bicycle Crunches',group:'Core'},{name:'Dead Bug',group:'Core'},
+  {name:'Russian Twist',group:'Core'},{name:'Mountain Climbers',group:'Core'},
+  {name:'Hollow Body Hold',group:'Core'},{name:'V-Ups',group:'Core'},
+  {name:'Leg Raises',group:'Core'},{name:'Pallof Press',group:'Core'},
+  {name:'Woodchopper',group:'Core'},{name:'Sit-Ups',group:'Core'},
+  {name:'Oblique Crunches',group:'Core'},{name:'Flutter Kicks',group:'Core'},
+  {name:'Toes to Bar',group:'Core'},{name:'Stability Ball Rollout',group:'Core'}
+];
+const EXERCISE_GROUP_LOOKUP = Object.fromEntries(EXERCISE_BANK.map(e=>[e.name,e.group]));
 
 let sessions      = load(SESSIONS_KEY, {});
 let deletedSessionIds = load(DELETED_SESSIONS_KEY, []);
@@ -1516,46 +1592,100 @@ function closeDrum() { closeOverlay('drum-overlay'); }
 function showAddExercise() { showOverlay('add-ex-overlay'); renderExSuggestions(''); setTimeout(()=>document.getElementById('ex-name-input').focus(),300); }
 function closeAddExercise() { closeOverlay('add-ex-overlay'); document.getElementById('ex-name-input').value=''; document.getElementById('ex-suggest-list').innerHTML=''; }
 
-// The full library across all categories, deduplicated — suggestions during a
-// workout aren't limited to the current day's type, so e.g. a lower-body
-// exercise can still be picked on a full-body day.
-function allLibraryExercises() {
-  return [...new Set([...library.upper, ...library.lower, ...library.full])];
+// Every exercise name worth searching: the full tagged catalog plus whatever
+// is already active (custom entries typed in before might not be in the
+// catalog, but should still be findable). Suggestions during a workout
+// aren't limited to the current day's type, so e.g. a lower-body exercise
+// can still be picked on a full-body day.
+function allSearchableExercises() {
+  return [...new Set([...EXERCISE_BANK.map(e=>e.name), ...library.upper, ...library.lower, ...library.full])];
 }
 
-// Autocomplete: show matching library exercises (any category) as the user
-// types. Selecting one fills the input; typing something that matches
-// nothing is still allowed — saveNewExercise() adds it as new.
-function renderExSuggestions(filter) {
-  const box = document.getElementById('ex-suggest-list');
-  const list = allLibraryExercises();
-  const q = (filter||'').trim().toLowerCase();
-  const matches = list.filter(n=>n.toLowerCase().includes(q)).slice(0,8);
-  if(!matches.length){
-    box.innerHTML = q ? '<div class="ex-suggest-empty">No match — this will be added as a new exercise.</div>' : '';
+// Renders a plain list of exercise-name rows (each with its muscle group tag,
+// if it has one) into boxEl, wiring each row's click to onSelect(name).
+function renderMatchRows(boxEl, names, onSelect) {
+  boxEl.innerHTML = names.map(n=>{
+    const group = EXERCISE_GROUP_LOOKUP[n];
+    const tag = group ? `<div class="ex-suggest-tag" style="color:${MUSCLE_GROUP_COLORS[group]}">${group.toUpperCase()}</div>` : '';
+    return `<div class="ex-suggest-item"><div class="ex-suggest-name">${n}</div>${tag}</div>`;
+  }).join('');
+  boxEl.querySelectorAll('.ex-suggest-item').forEach((el,i)=>{
+    el.addEventListener('click', ()=>onSelect(names[i]));
+  });
+}
+
+// Shared search-results renderer used by both Today's "Add Exercise" and the
+// Library page's per-section add box. Matches show their muscle group in a
+// small colored tag. A query starting with # searches by muscle group
+// instead of by name — "#chest" (or any partial, e.g. "#ch") lists every
+// catalog exercise tagged Chest; a bare "#" lists the group names themselves
+// so you can drill in from there. onSelect(name) fires when a suggestion (or
+// the "add as new" row) is chosen. When allowAddNew is true, a tap-to-add row
+// appears for unmatched plain-text queries; otherwise unmatched text just
+// shows an informational note (Today already has its own persistent
+// "ADD TO WORKOUT" button for that). inputEl is only needed for the # group
+// picker, which fills in the input as you drill down.
+function renderExerciseSearchResults(query, boxEl, inputEl, onSelect, allowAddNew) {
+  const q = (query||'').trim();
+
+  if(q.startsWith('#')){
+    const gq = q.slice(1).toLowerCase();
+    if(!gq){
+      // Bare "#" — list the group names themselves so you can drill in.
+      boxEl.innerHTML = MUSCLE_GROUPS.map(g=>
+        `<div class="ex-suggest-item"><div class="ex-suggest-name">#${g}</div><div class="ex-suggest-tag" style="color:${MUSCLE_GROUP_COLORS[g]}">${g.toUpperCase()}</div></div>`
+      ).join('');
+      boxEl.querySelectorAll('.ex-suggest-item').forEach((el,i)=>{
+        el.addEventListener('click', ()=>{
+          const tag = '#'+MUSCLE_GROUPS[i];
+          inputEl.value = tag;
+          renderExerciseSearchResults(tag, boxEl, inputEl, onSelect, allowAddNew);
+        });
+      });
+      return;
+    }
+    const matches = EXERCISE_BANK.filter(e=>e.group.toLowerCase().startsWith(gq)).map(e=>e.name);
+    if(!matches.length){ boxEl.innerHTML = `<div class="ex-suggest-empty">No muscle group matches "#${gq}"</div>`; return; }
+    renderMatchRows(boxEl, matches, onSelect);
     return;
   }
-  box.innerHTML = matches.map(n=>`<div class="ex-suggest-item">${n}</div>`).join('');
-  box.querySelectorAll('.ex-suggest-item').forEach((el,i)=>{
-    el.addEventListener('click', ()=>{
-      document.getElementById('ex-name-input').value = matches[i];
-      renderExSuggestions(matches[i]);
-    });
-  });
+
+  const matches = allSearchableExercises().filter(n=>n.toLowerCase().includes(q.toLowerCase())).slice(0,8);
+  if(!matches.length){
+    if(!q){ boxEl.innerHTML=''; return; }
+    if(allowAddNew){
+      boxEl.innerHTML = `<div class="ex-suggest-additem" id="ex-suggest-add-new">+ Add "${q}" as new</div>`;
+      boxEl.querySelector('#ex-suggest-add-new').addEventListener('click', ()=>onSelect(q));
+    } else {
+      boxEl.innerHTML = '<div class="ex-suggest-empty">No match — this will be added as a new exercise.</div>';
+    }
+    return;
+  }
+  renderMatchRows(boxEl, matches, onSelect);
+}
+
+// Autocomplete for Today's "Add Exercise" overlay.
+function renderExSuggestions(filter) {
+  const inputEl = document.getElementById('ex-name-input');
+  renderExerciseSearchResults(filter, document.getElementById('ex-suggest-list'), inputEl, (name)=>{
+    inputEl.value = name;
+    renderExSuggestions(name);
+  }, false);
 }
 
 function saveNewExercise() {
   const raw = document.getElementById('ex-name-input').value.trim();
   if(!raw) return;
-  let name = raw;
-  const existing = allLibraryExercises().find(n=>n.toLowerCase()===raw.toLowerCase());
-  if(existing){
-    name = existing; // reuse existing casing instead of creating a near-duplicate
-  } else if(library[currentType]) {
-    // Genuinely new — file it under today's workout type by default.
-    library[currentType].push(raw);
+  // Reuse existing casing instead of creating a near-duplicate, whether it
+  // came from the catalog or was already in some active list.
+  const existing = allSearchableExercises().find(n=>n.toLowerCase()===raw.toLowerCase());
+  const name = existing || raw;
+  // Whether picked from the catalog or freshly typed, make sure it's on
+  // today's active list going forward — not just in this one session.
+  if(library[currentType] && !library[currentType].includes(name)){
+    library[currentType].push(name);
     saveLibrary();
-    showToast('Added "'+raw+'" to your '+TEMPLATES[currentType].label+' library');
+    showToast('Added "'+name+'" to your '+TEMPLATES[currentType].label+' library');
   }
   const prevSets = getLastSets(name);
   currentSession.exercises.push({ name, sets: prevSets });
@@ -1969,7 +2099,6 @@ function showImportStatus(msg, isError=false) {
 
 // ── LIBRARY ───────────────────────────────────────────────────────────────────
 function renderLibrary() {
-  const colors = { upper:'in-list-blue', lower:'in-list-orange', full:'in-list' };
   ['upper','lower','full'].forEach(type => {
     // Active list
     const container = document.getElementById('lib-'+type+'-list');
@@ -1990,34 +2119,24 @@ function renderLibrary() {
       row.querySelector('#lib-del-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libRemoveEx(type, i); });
       container.appendChild(row);
     });
-
-    // Bank pills — highlight ones already in active list
-    const bankContainer = document.getElementById('bank-'+type);
-    bankContainer.innerHTML = '';
-    EXERCISE_BANK[type].forEach(name => {
-      const inList = library[type].includes(name);
-      const pill = document.createElement('button');
-      pill.className = 'bank-pill' + (inList ? ' '+colors[type] : '');
-      pill.textContent = (inList ? '✓ ' : '+ ') + name;
-      pill.addEventListener('click', () => libToggleBankEx(type, name));
-      bankContainer.appendChild(pill);
-    });
   });
 }
 
-function libToggleBankEx(type, name) {
-  if(library[type].includes(name)) {
-    // Remove from active list
-    if(library[type].length <= 1) { showToast('Need at least 1 exercise'); return; }
-    library[type] = library[type].filter(n => n !== name);
-    showToast('Removed from ' + TEMPLATES[type].label);
-  } else {
-    // Add to active list
-    library[type].push(name);
-    showToast('Added to ' + TEMPLATES[type].label);
-  }
-  saveLibrary();
-  renderLibrary();
+// Search-as-you-type add flow for each Library section — the exercise bank
+// has no standing UI of its own; it only ever surfaces through this search.
+function renderLibAddSuggestions(type, filter) {
+  const inputEl = document.getElementById('lib-add-input-'+type);
+  renderExerciseSearchResults(filter, document.getElementById('lib-add-suggest-'+type), inputEl, (name)=>{
+    libAddExFromSearch(type, name);
+  }, true);
+}
+
+function libAddExFromSearch(type, name) {
+  const alreadyIn = library[type].includes(name);
+  if(!alreadyIn){ library[type].push(name); saveLibrary(); renderLibrary(); }
+  document.getElementById('lib-add-input-'+type).value = '';
+  document.getElementById('lib-add-suggest-'+type).innerHTML = '';
+  showToast(alreadyIn ? 'Already in list' : 'Added to ' + TEMPLATES[type].label);
 }
 
 function libMoveEx(type, i, dir) {
@@ -2073,18 +2192,6 @@ function libRenameEx(type, i) {
   renameExerciseEverywhere(oldName, trimmed);
   renderLibrary();
   showToast(merging ? `Merged into "${trimmed}"` : `Renamed to "${trimmed}"`);
-}
-
-function libAddEx(type) {
-  const input = document.getElementById('lib-'+type+'-input');
-  const name = input.value.trim();
-  if(!name) return;
-  if(library[type].includes(name)) { showToast('Already in list'); return; }
-  library[type].push(name);
-  saveLibrary();
-  input.value = '';
-  renderLibrary();
-  showToast('Exercise added to ' + TEMPLATES[type].label);
 }
 
 // ── BODY MEASUREMENTS ─────────────────────────────────────────────────────────
