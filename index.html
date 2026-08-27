@@ -458,6 +458,17 @@ body{display:flex;flex-direction:column;}
     <div id="sheets-status" style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);margin-top:8px;display:none;"></div>
   </div>
 
+  <div class="sec-label" style="margin-bottom:8px;">FIREBASE SYNC</div>
+  <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:16px;">
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6;">Paste your sync token to enable realtime two-way sync across devices via Firebase. This is a second, independent backup — Google Sheets sync above keeps working either way.</div>
+    <input id="rtdb-secret-input" type="text" placeholder="Secret sync token" style="background:var(--surf2);border:1px solid var(--border2);border-radius:var(--rsm);padding:10px 12px;font-size:13px;color:var(--text);font-family:'DM Mono',monospace;width:100%;margin-bottom:8px;box-sizing:border-box;" oninput="saveRtdbSecret(this.value)">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button onclick="testRTDBConnection()" style="padding:11px 6px;border-radius:var(--rsm);border:1px solid var(--border2);background:var(--surf2);color:var(--text);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Test Connection</button>
+      <button onclick="syncAllToRTDB()" style="padding:11px 6px;border-radius:var(--rsm);border:none;background:var(--accent-dim);color:var(--accent);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">↑ Push All Now</button>
+    </div>
+    <div id="rtdb-status" style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);margin-top:8px;display:none;"></div>
+  </div>
+
   <div class="sec-label" style="margin-bottom:8px;">DATA BACKUP</div>
   <div style="background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:16px;">
     <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6;">Export a local backup anytime. Import merges without overwriting newer entries.</div>
@@ -662,6 +673,8 @@ body{display:flex;flex-direction:column;}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
 <script>
 // ── STORAGE ──────────────────────────────────────────────────────────────────
 function load(k,d){try{return JSON.parse(localStorage.getItem(k))??d;}catch{return d;}}
@@ -676,6 +689,18 @@ const BODY_KEY     = 'sidsgym_body'; // { height:{ft,in}, measurements:{key:[{va
 const DELETED_SESSIONS_KEY = 'sidsgym_deleted_sessions'; // tombstones — ids deleted locally, so a merge-pull can't resurrect them
 const DATA_SCHEMA  = 3;
 const APP_VERSION  = 'v4.2';
+
+// Firebase project config — safe to keep public; the RTDB security rules
+// (database.rules.json) are the actual access gate, not this object.
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyC-Rv7bBg9uzKKXhsYywy_FE2H2c1FTtuk',
+  authDomain: 'sids-gym-20d6f.firebaseapp.com',
+  databaseURL: 'https://sids-gym-20d6f-default-rtdb.firebaseio.com',
+  projectId: 'sids-gym-20d6f',
+  storageBucket: 'sids-gym-20d6f.firebasestorage.app',
+  messagingSenderId: '731799706311',
+  appId: '1:731799706311:web:19e5bb93c224c232bbbce2'
+};
 
 // Default active lists — used only if no library exists yet in localStorage
 const DEFAULT_LIBRARY = {
@@ -817,6 +842,10 @@ let library       = load(LIBRARY_KEY, JSON.parse(JSON.stringify(DEFAULT_LIBRARY)
 let customMetrics = load(METRICS_KEY, { vars: [], logs: [] });
 let bodyData      = load(BODY_KEY, { height: null, measurements: {} });
 let cloudLoaded   = false; // becomes true once we've recalled (or attempted) the cloud copy
+let rtdbBase = null; // declared here (not down in the RTDB sync block) so early-init code
+                      // paths — e.g. migrateLibraryV41() calling saveLibrary() — can safely
+                      // reference it before the script reaches that block (let has no hoisting)
+let _rtdbSessionSyncTimer = null;
 
 // TEMPLATES is built from the live library — always reflects latest user choices
 const TEMPLATES = {
@@ -832,6 +861,7 @@ function saveLibrary() {
   TEMPLATES.lower.exercises = library.lower;
   TEMPLATES.full.exercises  = library.full;
   if(typeof cloudLoaded!=='undefined' && cloudLoaded) syncToSheets();
+  rtdbSetLibrary(library);
 }
 
 // Migrate v1 data (keyed by date) to v2 (keyed by session ID) transparently
@@ -909,6 +939,7 @@ updateStats();
 // Recall everything from Google Sheets on every load (survives hard refresh / cleared localStorage).
 // localStorage is just a fast cache + offline fallback; Sheets is the source of truth.
 loadFromSheets();
+initFirebase();
 
 function hardRefresh() {
   if(workoutStarted) {
@@ -934,6 +965,8 @@ function showPage(id) {
 function initHealthTab() {
   const input = document.getElementById('sheets-url-input');
   if(input) input.value = getSheetsUrl();
+  const rtdbInput = document.getElementById('rtdb-secret-input');
+  if(rtdbInput) rtdbInput.value = getRtdbSecret();
 }
 
 function saveSheetsUrl(val) {
@@ -1295,6 +1328,7 @@ function saveSession() {
     save(SESSIONS_KEY, sessions);
     updateStats();
     if(cloudLoaded) syncToSheets(); // mirror to Google Sheets in the background
+    syncSessionToRTDB(currentSessionId);
   }
 }
 
@@ -1351,6 +1385,7 @@ function saveMetrics() {
   healthLog[todayDate] = m;
   save(HEALTH_KEY, healthLog);
   syncToSheets(); // push full state to Sheets in the background
+  rtdbSetHealth(todayDate, m);
   ['m-rhr','m-hrv','m-recovery','m-vo2','m-sleep','m-bw'].forEach(id=>document.getElementById(id).value='');
   closeOverlay('metrics-overlay');
   resetTodayUI();
@@ -1505,6 +1540,225 @@ function syncAllToSheets() { pushToSheets({ announce:true }); }
 function syncSessionToSheets() { syncToSheets(); }
 function syncHealthToSheets()  { syncToSheets(); }
 function syncMeasurementToSheets() { syncToSheets(); }
+
+// ── FIREBASE RTDB SYNC ───────────────────────────────────────────────────────
+// Independent, additive sync path alongside Google Sheets above. Every keyed
+// collection is written as its own record (not one whole-state blob), so a
+// single edit only ever pushes the record that changed.
+function getRtdbSecret(){ return localStorage.getItem('sidsgym_rtdb_secret')||''; }
+function setRtdbSecret(token){ localStorage.setItem('sidsgym_rtdb_secret', token.trim()); }
+
+function initFirebase() {
+  if(typeof firebase === 'undefined') return; // SDK failed to load (offline first load, etc.)
+  if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+  if(getRtdbSecret()) connectRTDB();
+}
+
+function connectRTDB() {
+  const secret = getRtdbSecret();
+  if(!secret || typeof firebase === 'undefined') return;
+  rtdbBase = firebase.database().ref(secret);
+  loadFromRTDB();
+  attachRTDBListeners();
+}
+
+function disconnectRTDB() {
+  if(rtdbBase) {
+    ['sessions','health','library','customMetrics/vars','customMetrics/logs','bodyData/height','bodyData/measurements','deletedSessionIds']
+      .forEach(p => rtdbBase.child(p).off());
+  }
+  rtdbBase = null;
+}
+
+// READ: one-shot pull on connect, mirrors loadFromSheets()'s pull-on-load semantics.
+function loadFromRTDB() {
+  if(!rtdbBase) return;
+  rtdbBase.once('value')
+    .then(snap => { if(snap.exists()) applyRTDBRoot(snap.val()); })
+    .catch(()=>{ /* offline — keep using localStorage cache */ });
+}
+
+function applyRTDBRoot(state) {
+  if(state.sessions) applyRTDBSessions(state.sessions);
+  if(state.health) applyRTDBHealth(state.health);
+  if(state.library) applyRTDBLibrary(state.library);
+  if(state.customMetrics && state.customMetrics.vars) applyRTDBCMVars(state.customMetrics.vars);
+  if(state.customMetrics && state.customMetrics.logs) applyRTDBCMLogs(state.customMetrics.logs);
+  if(state.bodyData && state.bodyData.height) applyRTDBHeight(state.bodyData.height);
+  if(state.bodyData && state.bodyData.measurements) applyRTDBMeasurements(state.bodyData.measurements);
+  if(state.deletedSessionIds) applyRTDBTombstones(state.deletedSessionIds);
+}
+
+// Live listeners — one per top-level child, so unrelated changes don't
+// re-download everything.
+function attachRTDBListeners() {
+  rtdbBase.child('sessions').on('value', s => applyRTDBSessions(s.val()||{}));
+  rtdbBase.child('health').on('value', s => applyRTDBHealth(s.val()||{}));
+  rtdbBase.child('library').on('value', s => applyRTDBLibrary(s.val()));
+  rtdbBase.child('customMetrics/vars').on('value', s => applyRTDBCMVars(s.val()||{}));
+  rtdbBase.child('customMetrics/logs').on('value', s => applyRTDBCMLogs(s.val()||{}));
+  rtdbBase.child('bodyData/height').on('value', s => applyRTDBHeight(s.val()));
+  rtdbBase.child('bodyData/measurements').on('value', s => applyRTDBMeasurements(s.val()||{}));
+  rtdbBase.child('deletedSessionIds').on('value', s => applyRTDBTombstones(s.val()||{}));
+}
+
+// Union-merge helpers mirror applyCloudState()'s Sheets semantics: incoming
+// wins on key conflict, but keys missing from incoming are always kept, so a
+// stale pull can never erase data recorded offline on another device.
+function applyRTDBSessions(remote) {
+  const merged = unionKeyed(sessions, remote);
+  deletedSessionIds.forEach(id => { delete merged[id]; });
+  const localOnlyKeys = Object.keys(merged).filter(id => !(id in remote));
+  sessions = merged;
+  save(SESSIONS_KEY, sessions);
+  localOnlyKeys.forEach(id => rtdbSetSession(id, sessions[id])); // push back what the cloud was missing
+  refreshActivePage();
+}
+
+function applyRTDBHealth(remote) {
+  healthLog = unionKeyed(healthLog, remote);
+  save(HEALTH_KEY, healthLog);
+  refreshActivePage();
+}
+
+function applyRTDBLibrary(remote) {
+  if(!remote) return;
+  if(remote.upper) library.upper = remote.upper;
+  if(remote.lower) library.lower = remote.lower;
+  if(remote.full)  library.full  = remote.full;
+  save(LIBRARY_KEY, library);
+  TEMPLATES.upper.exercises = library.upper;
+  TEMPLATES.lower.exercises = library.lower;
+  TEMPLATES.full.exercises  = library.full;
+}
+
+function applyRTDBCMVars(remote) {
+  const byId = Object.fromEntries(customMetrics.vars.map(v=>[v.id,v]));
+  Object.assign(byId, remote);
+  customMetrics.vars = Object.values(byId);
+  save(METRICS_KEY, customMetrics);
+  refreshActivePage();
+}
+
+function applyRTDBCMLogs(remote) {
+  const byTs = Object.fromEntries(customMetrics.logs.map(l=>[String(l.ts),l]));
+  Object.assign(byTs, remote);
+  customMetrics.logs = Object.values(byTs);
+  save(METRICS_KEY, customMetrics);
+  refreshActivePage();
+}
+
+function applyRTDBHeight(remote) {
+  if(!remote) return;
+  bodyData.height = remote;
+  save(BODY_KEY, bodyData);
+  refreshActivePage();
+}
+
+function applyRTDBMeasurements(remote) {
+  Object.entries(remote).forEach(([measId, entriesByTs]) => {
+    const byTs = Object.fromEntries((bodyData.measurements[measId]||[]).map(e=>[String(e.ts),e]));
+    Object.assign(byTs, entriesByTs);
+    bodyData.measurements[measId] = Object.values(byTs);
+  });
+  save(BODY_KEY, bodyData);
+  refreshActivePage();
+}
+
+function applyRTDBTombstones(remote) {
+  Object.keys(remote).forEach(id => {
+    if(!deletedSessionIds.includes(id)) deletedSessionIds.push(id);
+    if(sessions[id]) { delete sessions[id]; rtdbBase.child('sessions/'+id).remove(); }
+  });
+  save(DELETED_SESSIONS_KEY, deletedSessionIds);
+  refreshActivePage();
+}
+
+// Re-render whatever page is currently visible, mirroring applyCloudState()'s
+// refresh at the end of a Sheets pull.
+function refreshActivePage() {
+  updateStats();
+  const active = document.querySelector('.page.active');
+  const id = active ? active.id.replace('page-','') : 'today';
+  if(id==='history') renderHistory();
+  else if(id==='trends') renderTrends();
+  else if(id==='health') renderHealth();
+  else if(id==='body') renderBodyPage();
+}
+
+// WRITE — one function per record type, each a no-op until connected.
+function rtdbSetSession(id, obj) { if(!rtdbBase) return; rtdbBase.child('sessions/'+id).set(obj); }
+function rtdbDeleteSession(id) { if(!rtdbBase) return; const upd={}; upd['sessions/'+id]=null; upd['deletedSessionIds/'+id]=true; rtdbBase.update(upd); }
+function rtdbSetHealth(dateKey, obj) { if(!rtdbBase) return; rtdbBase.child('health/'+dateKey).set(obj); }
+function rtdbSetLibrary(obj) { if(!rtdbBase) return; rtdbBase.child('library').set(obj); }
+function rtdbSetCMVar(varObj) { if(!rtdbBase) return; rtdbBase.child('customMetrics/vars/'+varObj.id).set(varObj); }
+function rtdbRemoveCMVar(id, tsList) {
+  if(!rtdbBase) return;
+  const upd = {}; upd['customMetrics/vars/'+id] = null;
+  (tsList||[]).forEach(ts => upd['customMetrics/logs/'+ts] = null);
+  rtdbBase.update(upd);
+}
+function rtdbSetCMLog(logObj) { if(!rtdbBase) return; rtdbBase.child('customMetrics/logs/'+logObj.ts).set(logObj); }
+function rtdbRemoveCMLog(ts) { if(!rtdbBase) return; rtdbBase.child('customMetrics/logs/'+ts).remove(); }
+function rtdbSetHeight(obj) { if(!rtdbBase) return; rtdbBase.child('bodyData/height').set(obj); }
+function rtdbSetMeasurement(measId, entry) { if(!rtdbBase) return; rtdbBase.child('bodyData/measurements/'+measId+'/'+entry.ts).set(entry); }
+function rtdbRemoveMeasurement(measId, ts) { if(!rtdbBase) return; rtdbBase.child('bodyData/measurements/'+measId+'/'+ts).remove(); }
+
+// Debounced per-session push (saveSession() fires on every set toggle).
+function syncSessionToRTDB(id) {
+  if(!rtdbBase) return;
+  clearTimeout(_rtdbSessionSyncTimer);
+  _rtdbSessionSyncTimer = setTimeout(()=>rtdbSetSession(id, sessions[id]), 500);
+}
+
+// UI-triggered
+function testRTDBConnection() {
+  const secret = getRtdbSecret();
+  if(!secret){ showToast('⚠ No sync token entered'); return; }
+  const status = document.getElementById('rtdb-status');
+  status.style.display='block'; status.style.color='var(--text3)';
+  status.textContent = 'Testing…';
+  if(typeof firebase === 'undefined'){ status.style.color='var(--red)'; status.textContent='⚠ Firebase SDK failed to load'; return; }
+  firebase.database().ref(secret).child('sessions').once('value')
+    .then(()=>{ status.style.color='var(--accent)'; status.textContent='✓ Connected — Firebase is live'; })
+    .catch(()=>{ status.style.color='var(--red)'; status.textContent='⚠ Could not connect — check token'; });
+}
+
+function saveRtdbSecret(val) {
+  setRtdbSecret(val);
+  disconnectRTDB();
+  const status = document.getElementById('rtdb-status');
+  status.style.display = 'block';
+  status.style.color = 'var(--text3)';
+  status.textContent = val.trim() ? 'Token saved ✓ — connecting…' : 'Token cleared';
+  setTimeout(()=>status.style.display='none', 2500);
+  if(val.trim()) connectRTDB();
+}
+
+function syncAllToRTDB() {
+  if(!rtdbBase) { showToast('⚠ No sync token — add it above'); return; }
+  const upd = {};
+  Object.entries(sessions).forEach(([id,s]) => upd['sessions/'+id] = s);
+  Object.entries(healthLog).forEach(([d,h]) => upd['health/'+d] = h);
+  upd['library'] = library;
+  customMetrics.vars.forEach(v => upd['customMetrics/vars/'+v.id] = v);
+  customMetrics.logs.forEach(l => upd['customMetrics/logs/'+l.ts] = l);
+  upd['bodyData/height'] = bodyData.height;
+  Object.entries(bodyData.measurements).forEach(([measId,entries]) =>
+    entries.forEach(e => upd['bodyData/measurements/'+measId+'/'+e.ts] = e));
+  deletedSessionIds.forEach(id => upd['deletedSessionIds/'+id] = true);
+  showToast('Pushing to Firebase…');
+  rtdbBase.update(upd)
+    .then(()=>showToast('✓ Pushed to Firebase'))
+    .catch(()=>showToast('⚠ Push failed'));
+}
+
+// ── ONE-TIME MIGRATION (delete this block after running once) ──────────────
+// After pasting your sync token above and confirming "Test Connection"
+// succeeds, run migrateToRTDB() from the browser DevTools console. It just
+// reuses the "Push All Now" button's logic against whatever's already loaded
+// in memory — safe to re-run, only needs to run once.
+window.migrateToRTDB = function() { syncAllToRTDB(); };
 
 // ── AUTO-BACKUP ───────────────────────────────────────────────────────────────
 function autoBackup() {
@@ -1888,6 +2142,7 @@ function deleteSession(k) {
     save(DELETED_SESSIONS_KEY, deletedSessionIds);
   }
   syncToSheets();
+  rtdbDeleteSession(k);
   updateStats();
   renderHistory();
   showToast('Workout deleted');
@@ -2218,6 +2473,7 @@ function saveHeight() {
   if(!ft && !ins) { showToast('Enter your height'); return; }
   bodyData.height = { ft, in: ins };
   saveBody();
+  rtdbSetHeight(bodyData.height);
   document.getElementById('height-setup').style.display='none';
   renderBodyPage();
   showToast('Height saved');
@@ -2290,6 +2546,7 @@ function saveMeasurement() {
   bodyData.measurements[activeMeasId].push(entry);
   saveBody();
   syncMeasurementToSheets(activeMeasId, entry); // push to Sheets silently
+  rtdbSetMeasurement(activeMeasId, entry);
   closeMeasOverlay();
   renderBodyPage();
   const def = MEAS_DEFS.find(d=>d.id===activeMeasId);
@@ -2300,6 +2557,7 @@ function deleteMeas(id, ts) {
   bodyData.measurements[id] = (bodyData.measurements[id]||[]).filter(e=>e.ts!==ts);
   saveBody();
   syncToSheets();
+  rtdbRemoveMeasurement(id, ts);
   closeMeasOverlay();
   renderBodyPage();
 }
@@ -2466,6 +2724,7 @@ function cmAddVar() {
   const id = 'cm_' + Date.now();
   customMetrics.vars.push({ id, name, unit });
   saveCustomMetrics();
+  rtdbSetCMVar({ id, name, unit });
   document.getElementById('cm-name-input').value = '';
   document.getElementById('cm-unit-input').value = '';
   renderCustomMetrics();
@@ -2473,9 +2732,11 @@ function cmAddVar() {
 }
 
 function cmRemoveVar(id) {
+  const removedTs = customMetrics.logs.filter(l=>l.varId===id).map(l=>l.ts);
   customMetrics.vars = customMetrics.vars.filter(v=>v.id!==id);
   customMetrics.logs = customMetrics.logs.filter(l=>l.varId!==id);
   saveCustomMetrics();
+  rtdbRemoveCMVar(id, removedTs);
   renderCustomMetrics();
   showToast('Metric removed');
 }
@@ -2486,8 +2747,10 @@ function cmLogValue(id) {
   const input = document.getElementById('cm-val-'+id);
   const val = parseFloat(input.value);
   if(isNaN(val)) { showToast('Enter a number'); return; }
-  customMetrics.logs.push({ varId:id, date:todayKey(), value:val, ts:Date.now() });
+  const logEntry = { varId:id, date:todayKey(), value:val, ts:Date.now() };
+  customMetrics.logs.push(logEntry);
   saveCustomMetrics();
+  rtdbSetCMLog(logEntry);
   input.value = '';
   renderCustomMetrics();
   showToast(v.name + ' logged: ' + val + (v.unit?' '+v.unit:''));
@@ -2497,6 +2760,7 @@ function cmDeleteLog(ts) {
   customMetrics.logs = customMetrics.logs.filter(l=>l.ts!==ts);
   saveCustomMetrics();
   syncToSheets();
+  rtdbRemoveCMLog(ts);
   renderCustomMetrics();
 }
 

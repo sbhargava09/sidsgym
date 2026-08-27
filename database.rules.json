@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "$secret": {
+      ".read": "$secret === 'PASTE_YOUR_SECRET_TOKEN_HERE'",
+      ".write": "$secret === 'PASTE_YOUR_SECRET_TOKEN_HERE'"
+    }
+  }
+}
