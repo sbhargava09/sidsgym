@@ -1881,6 +1881,7 @@ function renderMatchRows(boxEl, names, onSelect) {
 // picker, which fills in the input as you drill down.
 function renderExerciseSearchResults(query, boxEl, inputEl, onSelect, allowAddNew) {
   const q = (query||'').trim();
+  if(!q){ boxEl.innerHTML=''; return; }
 
   if(q.startsWith('#')){
     const gq = q.slice(1).toLowerCase();
@@ -1906,7 +1907,6 @@ function renderExerciseSearchResults(query, boxEl, inputEl, onSelect, allowAddNe
 
   const matches = allSearchableExercises().filter(n=>n.toLowerCase().includes(q.toLowerCase())).slice(0,8);
   if(!matches.length){
-    if(!q){ boxEl.innerHTML=''; return; }
     if(allowAddNew){
       boxEl.innerHTML = `<div class="ex-suggest-additem" id="ex-suggest-add-new">+ Add "${q}" as new</div>`;
       boxEl.querySelector('#ex-suggest-add-new').addEventListener('click', ()=>onSelect(q));
@@ -1917,6 +1917,31 @@ function renderExerciseSearchResults(query, boxEl, inputEl, onSelect, allowAddNe
   }
   renderMatchRows(boxEl, matches, onSelect);
 }
+
+// Every exercise-search input/dropdown pair on the page. A click anywhere
+// outside a pair's input AND its own dropdown dismisses that dropdown —
+// otherwise it just sits there open after you delete your text or decide
+// not to add anything and tap elsewhere.
+const EX_SEARCH_PAIRS = [
+  ['ex-name-input','ex-suggest-list'],
+  ['lib-add-input-upper','lib-add-suggest-upper'],
+  ['lib-add-input-lower','lib-add-suggest-lower'],
+  ['lib-add-input-full','lib-add-suggest-full']
+];
+document.addEventListener('click', e => {
+  // composedPath() captures the original target chain at dispatch time —
+  // selecting a suggestion re-renders (or empties) the dropdown as part of
+  // handling that same click, which detaches the clicked node before this
+  // listener runs; a plain .contains(e.target) check would then wrongly see
+  // that as "outside" and immediately erase the fresh results.
+  const path = e.composedPath();
+  EX_SEARCH_PAIRS.forEach(([inputId,boxId]) => {
+    const inputEl = document.getElementById(inputId);
+    const boxEl = document.getElementById(boxId);
+    if(!inputEl || !boxEl) return;
+    if(!path.includes(inputEl) && !path.includes(boxEl)) boxEl.innerHTML = '';
+  });
+});
 
 // Autocomplete for Today's "Add Exercise" overlay.
 function renderExSuggestions(filter) {
