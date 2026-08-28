@@ -265,6 +265,96 @@ body{display:flex;flex-direction:column;}
 .cm-log-date{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);flex:1;}
 .cm-log-val{font-size:14px;font-weight:700;color:var(--text);}
 .cm-log-del{background:none;border:none;color:var(--text3);font-size:14px;cursor:pointer;padding:2px 4px;}
+
+/* SUPERSETS — shared select-mode + builder chips (Library + Today) */
+.sec-label{font-size:12px;font-weight:700;color:var(--text3);letter-spacing:0.06em;}
+.lib-tool-btn{background:var(--surf2);border:1px solid var(--border2);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;color:var(--text2);cursor:pointer;font-family:'Syne',sans-serif;letter-spacing:0.02em;}
+.lib-tool-btn.active{background:var(--blue-dim);border-color:var(--blue);color:var(--blue);}
+.sel-bar{display:flex;align-items:center;justify-content:space-between;background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--rsm);padding:9px 12px;margin-bottom:8px;font-size:12px;color:var(--blue);font-weight:700;}
+.sel-bar-btns{display:flex;gap:6px;}
+.sel-bar-btns button{padding:6px 12px;border-radius:6px;border:none;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;cursor:pointer;}
+.sel-bar-btns .go{background:var(--blue);color:#000;}
+.sel-bar-btns .cancel{background:var(--surf2);color:var(--text2);}
+.lib-check{width:20px;height:20px;border-radius:5px;border:2px solid var(--border2);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--surf2);}
+.lib-check.checked{background:var(--blue);border-color:var(--blue);}
+.lib-check.checked::after{content:'✓';font-size:12px;color:#000;font-weight:800;}
+.lib-ex-row.selectable{cursor:pointer;}
+.ss-card{background:var(--surf);border:1px solid var(--blue);border-radius:var(--r);padding:10px 12px 12px;margin-bottom:8px;}
+.ss-badge-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.ss-badge{font-size:9px;font-family:'DM Mono',monospace;color:var(--blue);letter-spacing:0.08em;font-weight:700;background:var(--blue-dim);padding:4px 8px;border-radius:20px;}
+.ss-badge-actions{display:flex;gap:4px;margin-left:auto;}
+.ss-member-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
+.ss-member-row:last-child{border-bottom:none;}
+.ss-sub-block{padding:10px 0;border-bottom:1px solid var(--border);}
+.ss-sub-block:last-of-type{border-bottom:none;}
+.ss-sub-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.ss-chip-row{display:flex;flex-wrap:wrap;gap:6px;margin:0 20px 12px;}
+.ss-chip{display:flex;align-items:center;gap:6px;background:var(--blue-dim);border:1px solid var(--blue);border-radius:20px;padding:6px 10px 6px 12px;font-size:12px;color:var(--text);}
+.ss-chip .x{cursor:pointer;color:var(--text3);font-size:13px;}
+.ss-hint{font-size:11px;color:var(--text3);padding:0 20px 10px;line-height:1.5;}
+
+/* HOME HERO (Today tab) */
+.home-hero{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;}
+.home-greet-title{font-size:19px;font-weight:800;font-family:'Syne',sans-serif;letter-spacing:-0.2px;}
+.home-greet-sub{font-size:12px;color:var(--text2);margin-top:3px;}
+.home-icon-actions{display:flex;gap:8px;flex-shrink:0;}
+.home-icon-btn{background:var(--surf2);border:1px solid var(--border2);border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:15px;cursor:pointer;}
+.home-rings-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px;}
+.home-ring-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:10px 4px 9px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
+.ring-wrap{position:relative;display:flex;align-items:center;justify-content:center;}
+.ring-val{position:absolute;font-family:'DM Mono',monospace;font-weight:700;color:var(--text);}
+.home-ring-label{font-size:9px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.05em;}
+.home-quad-card{grid-column:span 2;background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:9px 10px;display:flex;flex-direction:column;justify-content:center;gap:6px;cursor:pointer;}
+.home-quad-label{font-size:9px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.05em;}
+.home-quad-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.home-quad-cell{display:flex;align-items:center;justify-content:space-between;gap:5px;background:var(--surf2);border-radius:6px;padding:5px 7px;font-size:10px;color:var(--text3);}
+.home-quad-cell.done{color:var(--text);}
+.home-quad-check{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;color:transparent;}
+.home-quad-check.done{background:var(--accent);border-color:var(--accent);color:#000;}
+.home-days-nav{display:flex;align-items:stretch;gap:6px;margin-bottom:10px;}
+.home-day-nav-btn{background:var(--surf2);border:1px solid var(--border2);border-radius:8px;width:26px;flex-shrink:0;color:var(--text2);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.home-day-nav-btn:disabled{opacity:0.25;pointer-events:none;}
+.home-days-strip{flex:1;display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.home-day{background:var(--surf);border:1px solid var(--border);border-radius:var(--rsm);padding:8px 2px 6px;text-align:center;cursor:pointer;}
+.home-day.today{background:var(--accent-dim);border-color:var(--accent);}
+.home-day.selected{border-color:var(--blue);}
+.home-day-name{font-size:9px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.04em;margin-bottom:4px;}
+.home-day.today .home-day-name{color:var(--accent);}
+.home-day-num{font-size:14px;font-weight:700;color:var(--text);}
+.home-day.today .home-day-num{color:var(--accent);}
+.home-day-dot{width:5px;height:5px;border-radius:50%;background:var(--green);margin:4px auto 0;}
+.home-day-detail{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:16px;}
+.home-workout-card{background:linear-gradient(160deg,var(--surf2),var(--surf));border:1px solid var(--border2);border-radius:var(--r);padding:16px;margin-bottom:14px;}
+.home-wc-badge{font-size:9px;font-family:'DM Mono',monospace;letter-spacing:0.08em;font-weight:700;margin-bottom:6px;}
+.home-wc-title{font-size:18px;font-weight:800;font-family:'Syne',sans-serif;margin-bottom:4px;}
+.home-wc-sub{font-size:12px;color:var(--text2);margin-bottom:2px;}
+.home-wc-meta{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);}
+
+/* TRENDS — OVERVIEW / GOALS / HEATMAP */
+.ov-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;margin-top:14px;}
+.ov-stat{display:flex;align-items:flex-start;gap:8px;}
+.ov-stat-dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;margin-top:4px;}
+.ov-stat-label{font-size:12px;color:var(--text2);}
+.ov-stat-val{font-size:15px;font-weight:800;color:var(--text);font-family:'Syne',sans-serif;}
+.ov-stat-delta{font-size:10px;font-family:'DM Mono',monospace;margin-top:1px;}
+.ov-stat-delta.up{color:var(--green);}
+.ov-stat-delta.down{color:var(--red);}
+.ov-stat-delta.flat{color:var(--text3);}
+.goals-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.goals-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.goal-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;}
+.goal-name{font-size:11px;color:var(--text2);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.goal-add-card{background:var(--surf);border:1px dashed var(--border2);border-radius:var(--r);display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:24px;cursor:pointer;min-height:96px;}
+.heat-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;}
+.heat-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;}
+.heat-title{font-size:13px;font-weight:700;color:var(--text);}
+.heat-sub{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);margin-top:2px;}
+.heat-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin-bottom:10px;}
+.heat-cell{aspect-ratio:1;border-radius:3px;background:var(--surf3);}
+.heat-cell.hit{background:var(--orange);}
+.heat-cell.future{background:transparent;}
+.heat-foot{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text2);cursor:pointer;padding-top:8px;border-top:1px solid var(--border);}
+.heat-foot b{color:var(--text);font-size:15px;}
 </style>
 </head>
 <body>
@@ -299,23 +389,49 @@ body{display:flex;flex-direction:column;}
 
 <!-- TODAY -->
 <div class="page active" id="page-today">
-  <div class="stats-row">
+
+  <!-- Home hero -->
+  <div class="home-hero">
+    <div>
+      <div class="home-greet-title" id="home-greet-title">HI</div>
+      <div class="home-greet-sub" id="home-greet-sub">Ready to train?</div>
+    </div>
+    <div class="home-icon-actions">
+      <button class="home-icon-btn" onclick="hardRefresh()" title="Refresh app">↺</button>
+    </div>
+  </div>
+
+  <div class="home-rings-row" id="home-rings-row"></div>
+  <div class="home-days-nav">
+    <button class="home-day-nav-btn" id="home-week-prev" onclick="homeWeekNav(1)">‹</button>
+    <div class="home-days-strip" id="home-days-strip"></div>
+    <button class="home-day-nav-btn" id="home-week-next" onclick="homeWeekNav(-1)">›</button>
+  </div>
+  <div class="home-day-detail" id="home-day-detail" style="display:none;"></div>
+
+  <!-- Legacy stat cards (kept for reference elsewhere) -->
+  <div class="stats-row" style="display:none;">
     <div class="stat-card"><div class="stat-label">STREAK</div><div class="stat-val accent" id="s-streak">0</div><div class="stat-sub">days</div></div>
     <div class="stat-card"><div class="stat-label">THIS MONTH</div><div class="stat-val" id="s-month">0</div><div class="stat-sub">sessions</div></div>
     <div class="stat-card"><div class="stat-label">THIS WEEK VOL</div><div class="stat-val" id="s-vol">0</div><div class="stat-sub">lbs</div></div>
   </div>
 
-  <!-- Workout type -->
-  <div class="sec-label">WORKOUT TYPE</div>
-  <div class="type-bar">
-    <div class="type-btn active-upper" onclick="setType('upper')" id="tb-upper">🏋️ UPPER</div>
-    <div class="type-btn" onclick="setType('lower')" id="tb-lower">🦵 LOWER</div>
-    <div class="type-btn" onclick="setType('full')" id="tb-full">🔥 FULL</div>
-    <div class="type-btn" onclick="setType('cardio')" id="tb-cardio">🏃 CARDIO</div>
-  </div>
+  <!-- Workout card -->
+  <div class="home-workout-card">
+    <div class="home-wc-badge" id="home-wc-badge">STRENGTH · UPPER</div>
+    <div class="home-wc-title" id="home-wc-title">🏋️ Upper Body</div>
+    <div class="home-wc-sub" id="home-wc-sub">Chest, Back, Shoulders</div>
+    <div class="home-wc-meta" id="home-wc-meta">~35 min · 6 exercises</div>
 
-  <!-- Start workout -->
-  <button class="start-btn" id="start-btn" onclick="startWorkout()">START WORKOUT</button>
+    <div class="type-bar" style="margin-top:14px;">
+      <div class="type-btn active-upper" onclick="setType('upper')" id="tb-upper">🏋️ UPPER</div>
+      <div class="type-btn" onclick="setType('lower')" id="tb-lower">🦵 LOWER</div>
+      <div class="type-btn" onclick="setType('full')" id="tb-full">🔥 FULL</div>
+      <div class="type-btn" onclick="setType('cardio')" id="tb-cardio">🏃 CARDIO</div>
+    </div>
+
+    <button class="start-btn" id="start-btn" style="margin:14px 0 0;" onclick="startWorkout()">START WORKOUT</button>
+  </div>
 
   <!-- Workout content (hidden until started) -->
   <div id="workout-content" style="display:none;">
@@ -331,10 +447,23 @@ body{display:flex;flex-direction:column;}
 
     <!-- Strength view -->
     <div id="strength-view">
-      <div class="sec-label" style="margin-bottom:8px;" id="workout-progress-label">0 / 0 sets · 0 lbs</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="sec-label" id="workout-progress-label">0 / 0 sets · 0 lbs</div>
+        <button class="lib-tool-btn" id="today-selmode-btn" onclick="toggleTodaySelectMode()">⛓ Group</button>
+      </div>
       <div style="height:3px;background:var(--surf3);border-radius:2px;margin-bottom:12px;overflow:hidden;"><div id="progress-bar" style="height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width 0.3s;"></div></div>
+      <div class="sel-bar" id="today-selbar" style="display:none;">
+        <span id="today-selcount">0 selected</span>
+        <div class="sel-bar-btns">
+          <button class="go" onclick="groupTodaySelected()">Group</button>
+          <button class="cancel" onclick="toggleTodaySelectMode()">Cancel</button>
+        </div>
+      </div>
       <div class="ex-list" id="ex-list"></div>
-      <button class="add-ex-btn" onclick="showAddExercise()">+ Add Exercise</button>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="add-ex-btn" style="margin-top:0;flex:1;" onclick="showAddExercise()">+ Add Exercise</button>
+        <button class="add-ex-btn" style="margin-top:0;flex:1;" onclick="openSupersetBuilder('today', null)">⛓ Add Superset</button>
+      </div>
     </div>
 
     <!-- Cardio view -->
@@ -431,6 +560,39 @@ body{display:flex;flex-direction:column;}
     <button class="trend-range-btn" data-range="1y" onclick="setTrendsRange('1y')">1Y</button>
     <button class="trend-range-btn" data-range="all" onclick="setTrendsRange('all')">ALL</button>
   </div>
+
+  <div class="trend-section">
+    <div class="trend-title" id="ov-chart-title">OVERVIEW — WORKOUTS</div>
+    <div class="chart-wrap">
+      <div style="position:relative;height:130px;"><canvas id="ov-chart"></canvas></div>
+      <div class="ov-stat-grid" id="ov-stat-grid"></div>
+    </div>
+  </div>
+
+  <div class="trend-section">
+    <div class="heat-card">
+      <div class="heat-head">
+        <div>
+          <div class="heat-title">Workouts</div>
+          <div class="heat-sub">LAST 30 DAYS</div>
+        </div>
+      </div>
+      <div class="heat-grid" id="heat-grid"></div>
+      <div class="heat-foot" onclick="showPage('history')">
+        <span><b id="heat-week-count">0</b> this week</span>
+        <span>›</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="trend-section">
+    <div class="goals-header">
+      <div class="trend-title" style="margin-bottom:0;">MY GOALS</div>
+      <div class="home-icon-btn" style="width:30px;height:30px;font-size:13px;" onclick="openGoalsEditor()" title="Edit goals">⚙</div>
+    </div>
+    <div class="goals-row" id="goals-row"></div>
+  </div>
+
   <div class="trend-section">
     <div class="trend-title" id="vol-chart-title">WEEKLY VOLUME (LBS)</div>
     <div class="chart-wrap"><div style="position:relative;height:130px;"><canvas id="vol-chart"></canvas></div></div>
@@ -512,7 +674,20 @@ body{display:flex;flex-direction:column;}
   </div>
 
   <div id="lib-upper-section" class="lib-section">
-    <div class="sec-label" style="margin-bottom:8px;"><span style="color:var(--blue);">🏋️ UPPER BODY — ACTIVE LIST</span></div>
+    <div class="sec-label" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="color:var(--blue);">🏋️ UPPER BODY — ACTIVE LIST</span>
+      <span style="display:flex;gap:6px;">
+        <button class="lib-tool-btn" id="lib-selmode-upper" onclick="toggleLibSelectMode('upper')">⛓ Group</button>
+        <button class="lib-tool-btn" onclick="openSupersetBuilder('library','upper')">+ Superset</button>
+      </span>
+    </div>
+    <div class="sel-bar" id="lib-selbar-upper" style="display:none;">
+      <span id="lib-selcount-upper">0 selected</span>
+      <div class="sel-bar-btns">
+        <button class="go" onclick="groupLibSelected('upper')">Group</button>
+        <button class="cancel" onclick="toggleLibSelectMode('upper')">Cancel</button>
+      </div>
+    </div>
     <div id="lib-upper-list"></div>
     <input id="lib-add-input-upper" class="sheet-input" style="margin:8px 0 0;font-size:14px;padding:10px 12px;width:100%;box-sizing:border-box;" placeholder="Search, #chest, or add new..." type="text" autocomplete="off" oninput="renderLibAddSuggestions('upper',this.value)">
     <div class="ex-suggest-list" id="lib-add-suggest-upper"></div>
@@ -521,7 +696,20 @@ body{display:flex;flex-direction:column;}
   <div style="height:1px;background:var(--border);margin:20px 0;"></div>
 
   <div id="lib-lower-section" class="lib-section">
-    <div class="sec-label" style="margin-bottom:8px;"><span style="color:var(--orange);">🦵 LOWER BODY — ACTIVE LIST</span></div>
+    <div class="sec-label" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="color:var(--orange);">🦵 LOWER BODY — ACTIVE LIST</span>
+      <span style="display:flex;gap:6px;">
+        <button class="lib-tool-btn" id="lib-selmode-lower" onclick="toggleLibSelectMode('lower')">⛓ Group</button>
+        <button class="lib-tool-btn" onclick="openSupersetBuilder('library','lower')">+ Superset</button>
+      </span>
+    </div>
+    <div class="sel-bar" id="lib-selbar-lower" style="display:none;">
+      <span id="lib-selcount-lower">0 selected</span>
+      <div class="sel-bar-btns">
+        <button class="go" onclick="groupLibSelected('lower')">Group</button>
+        <button class="cancel" onclick="toggleLibSelectMode('lower')">Cancel</button>
+      </div>
+    </div>
     <div id="lib-lower-list"></div>
     <input id="lib-add-input-lower" class="sheet-input" style="margin:8px 0 0;font-size:14px;padding:10px 12px;width:100%;box-sizing:border-box;" placeholder="Search, #chest, or add new..." type="text" autocomplete="off" oninput="renderLibAddSuggestions('lower',this.value)">
     <div class="ex-suggest-list" id="lib-add-suggest-lower"></div>
@@ -530,7 +718,20 @@ body{display:flex;flex-direction:column;}
   <div style="height:1px;background:var(--border);margin:20px 0;"></div>
 
   <div id="lib-full-section" class="lib-section">
-    <div class="sec-label" style="margin-bottom:8px;"><span style="color:var(--accent);">🔥 FULL BODY — ACTIVE LIST</span></div>
+    <div class="sec-label" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="color:var(--accent);">🔥 FULL BODY — ACTIVE LIST</span>
+      <span style="display:flex;gap:6px;">
+        <button class="lib-tool-btn" id="lib-selmode-full" onclick="toggleLibSelectMode('full')">⛓ Group</button>
+        <button class="lib-tool-btn" onclick="openSupersetBuilder('library','full')">+ Superset</button>
+      </span>
+    </div>
+    <div class="sel-bar" id="lib-selbar-full" style="display:none;">
+      <span id="lib-selcount-full">0 selected</span>
+      <div class="sel-bar-btns">
+        <button class="go" onclick="groupLibSelected('full')">Group</button>
+        <button class="cancel" onclick="toggleLibSelectMode('full')">Cancel</button>
+      </div>
+    </div>
     <div id="lib-full-list"></div>
     <input id="lib-add-input-full" class="sheet-input" style="margin:8px 0 0;font-size:14px;padding:10px 12px;width:100%;box-sizing:border-box;" placeholder="Search, #chest, or add new..." type="text" autocomplete="off" oninput="renderLibAddSuggestions('full',this.value)">
     <div class="ex-suggest-list" id="lib-add-suggest-full"></div>
@@ -652,6 +853,38 @@ body{display:flex;flex-direction:column;}
   </div>
 </div>
 
+<!-- SUPERSET BUILDER OVERLAY -->
+<div class="overlay" id="ss-overlay">
+  <div class="add-ex-sheet">
+    <div class="sheet-header">
+      <div style="font-size:15px;font-weight:700;">Build Superset</div>
+      <div class="sheet-close" onclick="closeSupersetBuilder()">✕</div>
+    </div>
+    <div class="ss-hint">Search or type to pick 2 or more exercises, then create the superset.</div>
+    <input class="sheet-input" id="ss-search-input" placeholder="Search or #chest..." type="text" autocomplete="off" oninput="renderSSBuilderSuggestions(this.value)">
+    <div class="ex-suggest-list" id="ss-suggest-list"></div>
+    <div class="ss-chip-row" id="ss-chips"></div>
+    <button class="sheet-save-btn" id="ss-create-btn" onclick="createSuperset()">PICK AT LEAST 2 EXERCISES</button>
+  </div>
+</div>
+
+<!-- GOALS EDITOR OVERLAY -->
+<div class="overlay" id="goals-overlay">
+  <div class="metrics-sheet">
+    <div class="sheet-header">
+      <div>
+        <div style="font-size:15px;font-weight:700;">Edit Goals</div>
+        <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:3px;">Target weight per lift, in lbs</div>
+      </div>
+      <div class="sheet-close" onclick="closeGoalsEditor()">✕</div>
+    </div>
+    <div id="goals-edit-list"></div>
+    <div style="padding:12px 20px 4px;">
+      <button class="sheet-save-btn" style="margin:0;" onclick="addGoalRow()">+ Add Goal</button>
+    </div>
+  </div>
+</div>
+
 <!-- METRICS OVERLAY -->
 <div class="overlay" id="metrics-overlay">
   <div class="metrics-sheet">
@@ -687,8 +920,9 @@ const LIBRARY_KEY  = 'sidsgym_library';
 const METRICS_KEY  = 'sidsgym_custom_metrics';
 const BODY_KEY     = 'sidsgym_body'; // { height:{ft,in}, measurements:{key:[{val,date,ts}]} }
 const DELETED_SESSIONS_KEY = 'sidsgym_deleted_sessions'; // tombstones — ids deleted locally, so a merge-pull can't resurrect them
-const DATA_SCHEMA  = 3;
-const APP_VERSION  = 'v4.3';
+const DATA_SCHEMA  = 4;
+const APP_VERSION  = 'v5.0';
+const GOALS_KEY    = 'sidsgym_goals';
 
 // Firebase project config — safe to keep public; the RTDB security rules
 // (database.rules.json) are the actual access gate, not this object.
@@ -841,6 +1075,12 @@ let healthLog     = load(HEALTH_KEY, {});
 let library       = load(LIBRARY_KEY, JSON.parse(JSON.stringify(DEFAULT_LIBRARY)));
 let customMetrics = load(METRICS_KEY, { vars: [], logs: [] });
 let bodyData      = load(BODY_KEY, { height: null, measurements: {} });
+const DEFAULT_GOALS = [
+  { id:'g-squat',    name:'Squat',        exercise:'Barbell Squat',        target:null },
+  { id:'g-bench',    name:'Bench Press',  exercise:'Barbell Bench Press',  target:null },
+  { id:'g-deadlift', name:'Deadlift',     exercise:'Deadlift',             target:null }
+];
+let goals         = load(GOALS_KEY, DEFAULT_GOALS);
 let cloudLoaded   = false; // becomes true once we've recalled (or attempted) the cloud copy
 let rtdbBase = null; // declared here (not down in the RTDB sync block) so early-init code
                       // paths — e.g. migrateLibraryV41() calling saveLibrary() — can safely
@@ -864,6 +1104,25 @@ function saveLibrary() {
   rtdbSetLibrary(library);
 }
 
+function saveGoals() { save(GOALS_KEY, goals); if(cloudLoaded) syncToSheets(); }
+
+// ── SUPERSETS ──────────────────────────────────────────────────────────────
+// A library item is either a plain exercise-name string, or a grouped
+// superset object { superset: [name, name, ...] }. A session exercise entry
+// is either the original { name, sets } shape, or a grouped
+// { superset:true, exercises: [{name,sets}, ...] } shape. Every place that
+// used to assume a flat name/sets shape needs to go through these helpers.
+function isSuperset(item) { return item && typeof item==='object' && Array.isArray(item.superset); }
+function libItemNames(item) { return isSuperset(item) ? item.superset : [item]; }
+function isSessionSuperset(ex) { return ex && ex.superset === true && Array.isArray(ex.exercises); }
+// Flattens a session's exercises array (which may contain superset groups)
+// into a plain list of {name,sets} — used by every stat/history calculation
+// that only cares about individual exercises, not how they were grouped.
+function flattenExercises(exercises) {
+  if(!exercises) return [];
+  return exercises.flatMap(ex => isSessionSuperset(ex) ? ex.exercises : [ex]);
+}
+
 // Migrate v1 data (keyed by date) to v2 (keyed by session ID) transparently
 (function migrateV1() {
   let migrated = false;
@@ -879,6 +1138,10 @@ function saveLibrary() {
   if (migrated) save(SESSIONS_KEY, sessions);
 })();
 let currentType = 'upper';
+// Home hero day-strip state — declared early since updateStats() (called
+// during init, before the Trends section further down) renders the hero.
+let homeWeekOffset = 0;
+let homeExpandedDate = null;
 let workoutStarted = false;
 let workoutStartTime = null;
 let workoutTimerInterval = null;
@@ -925,7 +1188,8 @@ function migrateLibraryV41() {
   };
   let touched = false;
   Object.entries(additions).forEach(([type,names])=>{
-    names.forEach(n=>{ if(!library[type].includes(n)){ library[type].push(n); touched=true; } });
+    const flatNames = library[type].flatMap(libItemNames);
+    names.forEach(n=>{ if(!flatNames.includes(n)){ library[type].push(n); flatNames.push(n); touched=true; } });
   });
   if(touched){ saveLibrary(); syncToSheets(); }
   localStorage.setItem(LIB_MIGRATION_KEY, '1');
@@ -1002,6 +1266,7 @@ function setType(t) {
     const btn = document.getElementById('tb-'+x);
     btn.className = 'type-btn' + (x===t ? ' active-'+x : '');
   });
+  updateHomeWorkoutCard();
   if(workoutStarted) rebuildSession();
 }
 
@@ -1051,7 +1316,7 @@ function getLastSets(exName) {
     .sort((a,b) => b.finishedAt - a.finishedAt);
   for(const s of sorted) {
     if(!s.exercises) continue;
-    const ex = s.exercises.find(e => e.name === exName);
+    const ex = flattenExercises(s.exercises).find(e => e.name === exName);
     if(!ex || !ex.sets?.length) continue;
     // Return previous sets stripped of done-flag, keeping weight+reps per set
     return ex.sets.map(st => ({ weight: st.weight||50, reps: st.reps||10, done: false }));
@@ -1067,9 +1332,11 @@ function makeSession(type) {
   const tmpl = TEMPLATES[type];
   return {
     type, startedAt: Date.now(), finishedAt: null,
-    exercises: tmpl.exercises.map(name => {
-      const prevSets = getLastSets(name);
-      return { name, sets: prevSets };
+    exercises: tmpl.exercises.map(item => {
+      if(isSuperset(item)) {
+        return { superset:true, exercises: item.superset.map(name => ({ name, sets: getLastSets(name) })) };
+      }
+      return { name: item, sets: getLastSets(item) };
     })
   };
 }
@@ -1193,87 +1460,209 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ── RENDER EXERCISES ─────────────────────────────────────────────────────────
+// Today's "⛓ Group" select mode — lets you pick 2+ standalone exercises
+// already in the workout and merge them into a superset in place.
+let todaySelectMode = false;
+let todaySelected = new Set();
+// Set by addExToSuperset() right before opening the normal Add Exercise
+// overlay, so saveNewExercise() knows to append into an existing group's
+// .exercises array instead of pushing a new top-level entry.
+let pendingSupersetTargetEi = null;
+
+function setsHeaderHTML() {
+  return `<div class="sets-header">
+    <div class="sets-col-label">#</div>
+    <div class="sets-col-label">LBS</div>
+    <div class="sets-col-label">REPS</div>
+    <div></div>
+  </div>`;
+}
+function setRowsHTML(ei, subIdx, sets) {
+  const suf = subIdx==null ? `${ei}` : `${ei}-${subIdx}`;
+  return sets.map((s,si)=>`
+    <div class="set-row" id="set-${suf}-${si}" style="grid-template-columns:24px 1fr 1fr 32px 28px;">
+      <div class="set-num">${si+1}</div>
+      <div class="set-val ${s.done?'done-val':''}" id="wt-${suf}-${si}">${s.weight}</div>
+      <div class="set-val ${s.done?'done-val':''}" id="rp-${suf}-${si}">${s.reps}</div>
+      <div class="set-check ${s.done?'done':''}" id="chk-${suf}-${si}"></div>
+      <button class="del-set-btn" id="delset-${suf}-${si}">✕</button>
+    </div>`).join('');
+}
+function wireSetRows(card, ei, subIdx, sets) {
+  const suf = subIdx==null ? `${ei}` : `${ei}-${subIdx}`;
+  sets.forEach((_s, si) => {
+    card.querySelector('#wt-'+suf+'-'+si).addEventListener('click', () => openDrum(ei, si, 'weight', subIdx));
+    card.querySelector('#rp-'+suf+'-'+si).addEventListener('click', () => openDrum(ei, si, 'reps', subIdx));
+    card.querySelector('#chk-'+suf+'-'+si).addEventListener('click', () => toggleSet(ei, si, subIdx));
+    card.querySelector('#delset-'+suf+'-'+si).addEventListener('click', e => { e.stopPropagation(); deleteSet(ei, si, subIdx); });
+  });
+  card.querySelector('#addset-'+suf).addEventListener('click', () => addSet(ei, subIdx));
+}
+
 function renderExercises() {
   const list = document.getElementById('ex-list');
   const total = currentSession.exercises.length;
+  document.getElementById('today-selbar').style.display = todaySelectMode ? 'flex' : 'none';
+  document.getElementById('today-selcount').textContent = todaySelected.size + ' selected';
+  document.getElementById('today-selmode-btn').classList.toggle('active', todaySelectMode);
   // Remember open panels by exercise NAME (indices change when reordering)
   const openNames = new Set();
   document.querySelectorAll('.ex-body.open').forEach(el => {
     const idx = parseInt(el.id.replace('ex-body-',''));
-    if(currentSession.exercises[idx]) openNames.add(currentSession.exercises[idx].name);
+    const ex = currentSession.exercises[idx];
+    if(ex && ex.name) openNames.add(ex.name);
   });
   list.innerHTML = '';
   currentSession.exercises.forEach((ex, ei) => {
-    const card = document.createElement('div');
-    card.className = 'ex-card';
-    card.dataset.ei = ei;
-    const doneSets = ex.sets.filter(s=>s.done).length;
-    const allDone = doneSets === ex.sets.length;
-    const spark = sparklineHTML(exerciseHistory(ex.name));
-    card.innerHTML = `
-      <div style="display:flex;align-items:stretch;">
-        <div style="display:flex;flex-direction:column;gap:3px;padding:12px 6px 12px 10px;flex-shrink:0;justify-content:center;">
-          <button class="move-btn" id="mv-up-${ei}" ${ei===0?'disabled':''}>▲</button>
-          <button class="move-btn" id="mv-dn-${ei}" ${ei===total-1?'disabled':''}>▼</button>
-        </div>
-        <div style="flex:1;min-width:0;">
-          <div class="ex-header" id="ex-hdr-${ei}">
-            <div class="ex-info">
-              <div class="ex-name" style="${allDone?'color:var(--accent)':''}">${allDone?'✓ ':''}${ex.name}</div>
-              <div class="ex-meta">${doneSets}/${ex.sets.length} sets · ${ex.sets.reduce((a,s)=>a+(s.done?s.weight*s.reps:0),0).toLocaleString()} lbs</div>
-            </div>
-            ${spark}
-            <div class="ex-chevron" id="chev-${ei}">›</div>
-          </div>
-          <div class="ex-body" id="ex-body-${ei}">
-            <div class="sets-header">
-              <div class="sets-col-label">#</div>
-              <div class="sets-col-label">LBS</div>
-              <div class="sets-col-label">REPS</div>
-              <div></div>
-            </div>
-            ${ex.sets.map((s,si)=>`
-              <div class="set-row" id="set-${ei}-${si}" style="grid-template-columns:24px 1fr 1fr 32px 28px;">
-                <div class="set-num">${si+1}</div>
-                <div class="set-val ${s.done?'done-val':''}" id="wt-${ei}-${si}">${s.weight}</div>
-                <div class="set-val ${s.done?'done-val':''}" id="rp-${ei}-${si}">${s.reps}</div>
-                <div class="set-check ${s.done?'done':''}" id="chk-${ei}-${si}"></div>
-                <button class="del-set-btn" id="delset-${ei}-${si}">✕</button>
-              </div>`).join('')}
-            <button class="add-set-btn" id="addset-${ei}">+ Add Set</button>
-          </div>
-        </div>
-      </div>`;
+    const card = isSessionSuperset(ex)
+      ? buildSupersetCard(ex, ei, total)
+      : buildExerciseCard(ex, ei, total);
     list.appendChild(card);
-
-    // ── Attach events via addEventListener (NOT inline onclick) ──────────────
-    // Move buttons — stopPropagation prevents any bubbling to the header
-    const upBtn = card.querySelector('#mv-up-'+ei);
-    const dnBtn = card.querySelector('#mv-dn-'+ei);
-    upBtn.addEventListener('click', e => { e.stopPropagation(); moveEx(ei, -1); });
-    dnBtn.addEventListener('click', e => { e.stopPropagation(); moveEx(ei,  1); });
-
-    // Header toggle — only toggles, doesn't move
-    card.querySelector('#ex-hdr-'+ei).addEventListener('click', () => toggleEx(ei));
-
-    // Set checkboxes, weight/rep taps, add set
-    ex.sets.forEach((_s, si) => {
-      card.querySelector('#wt-'+ei+'-'+si).addEventListener('click', () => openDrum(ei, si, 'weight'));
-      card.querySelector('#rp-'+ei+'-'+si).addEventListener('click', () => openDrum(ei, si, 'reps'));
-      card.querySelector('#chk-'+ei+'-'+si).addEventListener('click', () => toggleSet(ei, si));
-      card.querySelector('#delset-'+ei+'-'+si).addEventListener('click', e => { e.stopPropagation(); deleteSet(ei, si); });
-    });
-    card.querySelector('#addset-'+ei).addEventListener('click', () => addSet(ei));
   });
 
-  // Restore open panels by name
+  // Restore open panels by name (standalone cards only)
   currentSession.exercises.forEach((ex, i) => {
-    if(openNames.has(ex.name)) {
+    if(ex.name && openNames.has(ex.name)) {
       const b = document.getElementById('ex-body-'+i); if(b) b.classList.add('open');
       const c = document.getElementById('chev-'+i); if(c) c.classList.add('open');
     }
   });
   updateProgress();
+}
+
+function buildExerciseCard(ex, ei, total) {
+  const card = document.createElement('div');
+  card.className = 'ex-card';
+  card.dataset.ei = ei;
+  const doneSets = ex.sets.filter(s=>s.done).length;
+  const allDone = doneSets === ex.sets.length;
+  const spark = sparklineHTML(exerciseHistory(ex.name));
+  const checked = todaySelected.has(ei);
+  card.innerHTML = `
+    <div style="display:flex;align-items:stretch;">
+      <div style="display:flex;flex-direction:column;gap:3px;padding:12px 6px 12px 10px;flex-shrink:0;justify-content:center;">
+        ${todaySelectMode
+          ? `<div class="lib-check ${checked?'checked':''}" id="today-chk-${ei}"></div>`
+          : `<button class="move-btn" id="mv-up-${ei}" ${ei===0?'disabled':''}>▲</button>
+             <button class="move-btn" id="mv-dn-${ei}" ${ei===total-1?'disabled':''}>▼</button>`}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div class="ex-header" id="ex-hdr-${ei}">
+          <div class="ex-info">
+            <div class="ex-name" style="${allDone?'color:var(--accent)':''}">${allDone?'✓ ':''}${ex.name}</div>
+            <div class="ex-meta">${doneSets}/${ex.sets.length} sets · ${ex.sets.reduce((a,s)=>a+(s.done?s.weight*s.reps:0),0).toLocaleString()} lbs</div>
+          </div>
+          ${spark}
+          ${todaySelectMode ? '' : `<div class="ex-chevron" id="chev-${ei}">›</div>`}
+        </div>
+        <div class="ex-body" id="ex-body-${ei}">
+          ${setsHeaderHTML()}
+          ${setRowsHTML(ei, null, ex.sets)}
+          <button class="add-set-btn" id="addset-${ei}">+ Add Set</button>
+        </div>
+      </div>
+    </div>`;
+
+  if(todaySelectMode) {
+    card.querySelector('#today-chk-'+ei).addEventListener('click', () => toggleTodaySelect(ei));
+    card.querySelector('#ex-hdr-'+ei).addEventListener('click', () => toggleTodaySelect(ei));
+    return card;
+  }
+
+  const upBtn = card.querySelector('#mv-up-'+ei);
+  const dnBtn = card.querySelector('#mv-dn-'+ei);
+  upBtn.addEventListener('click', e => { e.stopPropagation(); moveEx(ei, -1); });
+  dnBtn.addEventListener('click', e => { e.stopPropagation(); moveEx(ei,  1); });
+  card.querySelector('#ex-hdr-'+ei).addEventListener('click', () => toggleEx(ei));
+  wireSetRows(card, ei, null, ex.sets);
+  return card;
+}
+
+function buildSupersetCard(ex, ei, total) {
+  const card = document.createElement('div');
+  card.className = 'ex-card ss-card';
+  card.dataset.ei = ei;
+  const memberNames = ex.exercises.map(e=>e.name).join('  +  ');
+  card.innerHTML = `
+    <div class="ss-badge-row">
+      <span class="ss-badge">⛓ SUPERSET</span>
+      <span style="font-size:11px;color:var(--text3);">${memberNames}</span>
+      <span class="ss-badge-actions">
+        <button class="move-btn" id="mv-up-${ei}" ${ei===0?'disabled':''}>▲</button>
+        <button class="move-btn" id="mv-dn-${ei}" ${ei===total-1?'disabled':''}>▼</button>
+        <button class="lib-del-btn" id="ss-ungroup-${ei}" title="Ungroup">✂</button>
+      </span>
+    </div>
+    ${ex.exercises.map((sub,subIdx)=>{
+      const doneSets = sub.sets.filter(s=>s.done).length;
+      return `<div class="ss-sub-block">
+        <div class="ss-sub-header">
+          <div>
+            <div class="ex-name" style="font-size:13px;">${sub.name}</div>
+            <div class="ex-meta">${doneSets}/${sub.sets.length} sets · ${sub.sets.reduce((a,s)=>a+(s.done?s.weight*s.reps:0),0).toLocaleString()} lbs</div>
+          </div>
+          <button class="del-set-btn" id="ss-rm-${ei}-${subIdx}" title="Remove from group">✕</button>
+        </div>
+        ${setsHeaderHTML()}
+        ${setRowsHTML(ei, subIdx, sub.sets)}
+        <button class="add-set-btn" id="addset-${ei}-${subIdx}">+ Add Set</button>
+      </div>`;
+    }).join('')}
+    <button class="add-ex-btn" style="margin-top:10px;" id="ss-addex-${ei}">+ Add Exercise to Group</button>`;
+
+  card.querySelector('#mv-up-'+ei).addEventListener('click', () => moveEx(ei, -1));
+  card.querySelector('#mv-dn-'+ei).addEventListener('click', () => moveEx(ei, 1));
+  card.querySelector('#ss-ungroup-'+ei).addEventListener('click', () => ungroupToday(ei));
+  ex.exercises.forEach((sub, subIdx) => {
+    wireSetRows(card, ei, subIdx, sub.sets);
+    card.querySelector('#ss-rm-'+ei+'-'+subIdx).addEventListener('click', () => removeFromTodaySuperset(ei, subIdx));
+  });
+  card.querySelector('#ss-addex-'+ei).addEventListener('click', () => addExToSuperset(ei));
+  return card;
+}
+
+function toggleTodaySelectMode() {
+  todaySelectMode = !todaySelectMode;
+  todaySelected.clear();
+  renderExercises();
+}
+function toggleTodaySelect(ei) {
+  if(isSessionSuperset(currentSession.exercises[ei])) return; // groups can't be nested
+  if(todaySelected.has(ei)) todaySelected.delete(ei); else todaySelected.add(ei);
+  renderExercises();
+}
+function groupTodaySelected() {
+  const idxs = [...todaySelected].sort((a,b)=>a-b);
+  if(idxs.length < 2) { showToast('Select at least 2 exercises'); return; }
+  const exs = currentSession.exercises;
+  const members = idxs.map(i => exs[i]).map(e => ({ name: e.name, sets: e.sets }));
+  for(let k=idxs.length-1;k>=0;k--) exs.splice(idxs[k],1);
+  exs.splice(idxs[0], 0, { superset:true, exercises: members });
+  todaySelectMode = false;
+  todaySelected.clear();
+  saveSession();
+  renderExercises();
+  showToast('Grouped into superset');
+}
+function ungroupToday(ei) {
+  const top = currentSession.exercises[ei];
+  if(!isSessionSuperset(top)) return;
+  currentSession.exercises.splice(ei, 1, ...top.exercises);
+  saveSession();
+  renderExercises();
+  showToast('Superset ungrouped');
+}
+function removeFromTodaySuperset(ei, subIdx) {
+  const top = currentSession.exercises[ei];
+  if(!isSessionSuperset(top)) return;
+  top.exercises.splice(subIdx, 1);
+  if(top.exercises.length <= 1) currentSession.exercises.splice(ei, 1, ...top.exercises);
+  saveSession();
+  renderExercises();
+}
+function addExToSuperset(ei) {
+  pendingSupersetTargetEi = ei;
+  showAddExercise();
 }
 
 function toggleEx(ei) {
@@ -1283,17 +1672,19 @@ function toggleEx(ei) {
   chev.classList.toggle('open', open);
 }
 
-function toggleSet(ei, si) {
-  const s = currentSession.exercises[ei].sets[si];
+function toggleSet(ei, si, subIdx) {
+  const top = currentSession.exercises[ei];
+  const s = subIdx==null ? top.sets[si] : top.exercises[subIdx].sets[si];
   s.done = !s.done;
   saveSession();
   renderExercises();
 }
 
-function addSet(ei) {
-  const ex = currentSession.exercises[ei];
-  const last = ex.sets[ex.sets.length-1];
-  ex.sets.push({weight:last.weight, reps:last.reps, done:false});
+function addSet(ei, subIdx) {
+  const top = currentSession.exercises[ei];
+  const arr = subIdx==null ? top.sets : top.exercises[subIdx].sets;
+  const last = arr[arr.length-1];
+  arr.push({weight:last.weight, reps:last.reps, done:false});
   // Temporarily mark this panel open in the DOM so renderExercises preserves it
   const body = document.getElementById('ex-body-'+ei);
   if(body) body.classList.add('open');
@@ -1301,10 +1692,11 @@ function addSet(ei) {
   renderExercises();
 }
 
-function deleteSet(ei, si) {
-  const ex = currentSession.exercises[ei];
-  if(ex.sets.length <= 1) return; // always keep at least 1 set
-  ex.sets.splice(si, 1);
+function deleteSet(ei, si, subIdx) {
+  const top = currentSession.exercises[ei];
+  const arr = subIdx==null ? top.sets : top.exercises[subIdx].sets;
+  if(arr.length <= 1) return; // always keep at least 1 set
+  arr.splice(si, 1);
   const body = document.getElementById('ex-body-'+ei);
   if(body) body.classList.add('open');
   saveSession();
@@ -1313,9 +1705,10 @@ function deleteSet(ei, si) {
 
 function updateProgress() {
   const exs = currentSession.exercises;
-  const done = exs.reduce((a,ex)=>a+ex.sets.filter(s=>s.done).length,0);
-  const total = exs.reduce((a,ex)=>a+ex.sets.length,0);
-  const vol = exs.reduce((a,ex)=>a+ex.sets.filter(s=>s.done).reduce((b,s)=>b+(s.weight*s.reps),0),0);
+  const setsOf = ex => isSessionSuperset(ex) ? ex.exercises.flatMap(e=>e.sets) : ex.sets;
+  const done = exs.reduce((a,ex)=>a+setsOf(ex).filter(s=>s.done).length,0);
+  const total = exs.reduce((a,ex)=>a+setsOf(ex).length,0);
+  const vol = exs.reduce((a,ex)=>a+setsOf(ex).filter(s=>s.done).reduce((b,s)=>b+(s.weight*s.reps),0),0);
   document.getElementById('workout-progress-label').textContent = `${done} / ${total} sets · ${vol.toLocaleString()} lbs`;
   document.getElementById('progress-bar').style.width = total>0?Math.round(done/total*100)+'%':'0%';
 }
@@ -1788,13 +2181,15 @@ function showToast(msg) {
 }
 
 // ── DRUM PICKER ───────────────────────────────────────────────────────────────
-function openDrum(ei, si, startTab) {
-  drumTarget = {ei, si};
+function openDrum(ei, si, startTab, subIdx) {
+  drumTarget = {ei, si, subIdx: subIdx==null?null:subIdx};
   drumTab = startTab;
-  const s = currentSession.exercises[ei].sets[si];
+  const top = currentSession.exercises[ei];
+  const owner = subIdx==null ? top : top.exercises[subIdx];
+  const s = owner.sets[si];
   drumWeightVal = s.weight;
   drumRepsVal = s.reps;
-  document.getElementById('drum-title').textContent = currentSession.exercises[ei].name;
+  document.getElementById('drum-title').textContent = owner.name;
   buildDrumCol();
   switchDrumTab(startTab, false);
   showOverlay('drum-overlay');
@@ -1830,21 +2225,23 @@ function onDrumScroll() {
 
 function drumDone() {
   if(!drumTarget) return;
-  const {ei,si} = drumTarget;
-  const s = currentSession.exercises[ei].sets[si];
+  const {ei,si,subIdx} = drumTarget;
+  const top = currentSession.exercises[ei];
+  const owner = subIdx==null ? top : top.exercises[subIdx];
+  const s = owner.sets[si];
   s.weight = drumWeightVal;
   s.reps = drumRepsVal;
   saveSession();
   closeOverlay('drum-overlay');
   renderExercises();
-  setTimeout(()=>{ const b=document.getElementById('ex-body-'+ei); b.classList.add('open'); document.getElementById('chev-'+ei).classList.add('open'); },10);
+  setTimeout(()=>{ const b=document.getElementById('ex-body-'+ei); if(b){ b.classList.add('open'); document.getElementById('chev-'+ei)?.classList.add('open'); } },10);
 }
 
 function closeDrum() { closeOverlay('drum-overlay'); }
 
 // ── ADD EXERCISE ──────────────────────────────────────────────────────────────
 function showAddExercise() { showOverlay('add-ex-overlay'); renderExSuggestions(''); setTimeout(()=>document.getElementById('ex-name-input').focus(),300); }
-function closeAddExercise() { closeOverlay('add-ex-overlay'); document.getElementById('ex-name-input').value=''; document.getElementById('ex-suggest-list').innerHTML=''; }
+function closeAddExercise() { closeOverlay('add-ex-overlay'); document.getElementById('ex-name-input').value=''; document.getElementById('ex-suggest-list').innerHTML=''; pendingSupersetTargetEi = null; }
 
 // Every exercise name worth searching: the full tagged catalog plus whatever
 // is already active (custom entries typed in before might not be in the
@@ -1852,7 +2249,8 @@ function closeAddExercise() { closeOverlay('add-ex-overlay'); document.getElemen
 // aren't limited to the current day's type, so e.g. a lower-body exercise
 // can still be picked on a full-body day.
 function allSearchableExercises() {
-  return [...new Set([...EXERCISE_BANK.map(e=>e.name), ...library.upper, ...library.lower, ...library.full])];
+  const libNames = [...library.upper, ...library.lower, ...library.full].flatMap(libItemNames);
+  return [...new Set([...EXERCISE_BANK.map(e=>e.name), ...libNames])];
 }
 
 // Renders a plain list of exercise-name rows (each with its muscle group tag,
@@ -1926,7 +2324,8 @@ const EX_SEARCH_PAIRS = [
   ['ex-name-input','ex-suggest-list'],
   ['lib-add-input-upper','lib-add-suggest-upper'],
   ['lib-add-input-lower','lib-add-suggest-lower'],
-  ['lib-add-input-full','lib-add-suggest-full']
+  ['lib-add-input-full','lib-add-suggest-full'],
+  ['ss-search-input','ss-suggest-list']
 ];
 document.addEventListener('click', e => {
   // composedPath() captures the original target chain at dispatch time —
@@ -1939,6 +2338,13 @@ document.addEventListener('click', e => {
     const inputEl = document.getElementById(inputId);
     const boxEl = document.getElementById(boxId);
     if(!inputEl || !boxEl) return;
+    if(!path.includes(inputEl) && !path.includes(boxEl)) boxEl.innerHTML = '';
+  });
+  // Dynamic pairs — inline "add exercise to this group" search boxes inside
+  // superset cards, re-created on every render so they can't be listed above.
+  document.querySelectorAll('[data-suggest-for]').forEach(inputEl => {
+    const boxEl = document.getElementById(inputEl.dataset.suggestFor);
+    if(!boxEl) return;
     if(!path.includes(inputEl) && !path.includes(boxEl)) boxEl.innerHTML = '';
   });
 });
@@ -1961,16 +2367,80 @@ function saveNewExercise() {
   const name = existing || raw;
   // Whether picked from the catalog or freshly typed, make sure it's on
   // today's active list going forward — not just in this one session.
-  if(library[currentType] && !library[currentType].includes(name)){
+  if(library[currentType] && !library[currentType].flatMap(libItemNames).includes(name)){
     library[currentType].push(name);
     saveLibrary();
     showToast('Added "'+name+'" to your '+TEMPLATES[currentType].label+' library');
   }
   const prevSets = getLastSets(name);
-  currentSession.exercises.push({ name, sets: prevSets });
+  if(pendingSupersetTargetEi != null) {
+    currentSession.exercises[pendingSupersetTargetEi].exercises.push({ name, sets: prevSets });
+    pendingSupersetTargetEi = null;
+  } else {
+    currentSession.exercises.push({ name, sets: prevSets });
+  }
   saveSession();
   closeAddExercise();
   renderExercises();
+}
+
+// ── SUPERSET BUILDER — search & pick 2+ exercises, then create as a group ────
+// ssBuilderCtx.mode is 'library' (ctx.type = upper/lower/full) or 'today'.
+let ssBuilderCtx = null;
+let ssPicked = [];
+
+function openSupersetBuilder(mode, type) {
+  ssBuilderCtx = { mode, type };
+  ssPicked = [];
+  document.getElementById('ss-search-input').value = '';
+  document.getElementById('ss-suggest-list').innerHTML = '';
+  renderSSChips();
+  showOverlay('ss-overlay');
+  setTimeout(()=>document.getElementById('ss-search-input').focus(),300);
+}
+function closeSupersetBuilder() { closeOverlay('ss-overlay'); ssBuilderCtx = null; ssPicked = []; }
+
+function renderSSBuilderSuggestions(filter) {
+  const inputEl = document.getElementById('ss-search-input');
+  renderExerciseSearchResults(filter, document.getElementById('ss-suggest-list'), inputEl, (name)=>{
+    if(!ssPicked.includes(name)) ssPicked.push(name);
+    inputEl.value = '';
+    document.getElementById('ss-suggest-list').innerHTML = '';
+    renderSSChips();
+  }, true);
+}
+function renderSSChips() {
+  const wrap = document.getElementById('ss-chips');
+  wrap.innerHTML = ssPicked.map((n,i)=>`<div class="ss-chip">${n}<span class="x" data-i="${i}">✕</span></div>`).join('');
+  wrap.querySelectorAll('.x').forEach(x=>x.addEventListener('click', ()=>{
+    ssPicked.splice(+x.dataset.i, 1);
+    renderSSChips();
+  }));
+  const btn = document.getElementById('ss-create-btn');
+  btn.textContent = ssPicked.length>=2 ? `CREATE SUPERSET (${ssPicked.length})` : 'PICK AT LEAST 2 EXERCISES';
+}
+function createSuperset() {
+  if(!ssBuilderCtx || ssPicked.length < 2) { showToast('Pick at least 2 exercises'); return; }
+  const names = [...ssPicked];
+  if(ssBuilderCtx.mode === 'library') {
+    const type = ssBuilderCtx.type;
+    // Drop standalone entries for any picked exercise already in this list —
+    // it now lives inside the new group instead of also sitting on its own.
+    library[type] = library[type].filter(it => !names.includes(it));
+    library[type].push({ superset: names });
+    saveLibrary();
+    renderLibrary();
+  } else {
+    names.forEach(n=>{
+      if(library[currentType] && !library[currentType].flatMap(libItemNames).includes(n)) library[currentType].push(n);
+    });
+    saveLibrary();
+    currentSession.exercises.push({ superset:true, exercises: names.map(n=>({ name:n, sets: getLastSets(n) })) });
+    saveSession();
+    renderExercises();
+  }
+  closeSupersetBuilder();
+  showToast('Superset created');
 }
 
 // ── MOVE EXERCISE UP / DOWN ───────────────────────────────────────────────────
@@ -1986,6 +2456,168 @@ function moveEx(ei, dir) {
 // ── OVERLAY HELPERS ───────────────────────────────────────────────────────────
 function showOverlay(id){ document.getElementById(id).classList.add('show'); }
 function closeOverlay(id){ document.getElementById(id).classList.remove('show'); }
+
+// ── HOME HERO (Today tab) ────────────────────────────────────────────────────
+// homeWeekOffset/homeExpandedDate are declared earlier (near currentType)
+// since updateStats() renders this hero during init, before this point.
+function sessionsForDate(dateStr) {
+  return Object.values(sessions).filter(s=>s.finishedAt && sessionDisplayDate(s)===dateStr);
+}
+
+function renderHomeHero() {
+  const greetTitleEl = document.getElementById('home-greet-title');
+  if(!greetTitleEl) return;
+  const hr = new Date().getHours();
+  greetTitleEl.textContent = hr<5?'GOOD NIGHT':hr<12?'GOOD MORNING':hr<18?'GOOD AFTERNOON':'GOOD EVENING';
+
+  const allFinished = Object.values(sessions).filter(s=>s.finishedAt);
+  const finishedDates = new Set(allFinished.map(s=>dateKey(new Date(s.finishedAt))));
+  let streak=0;
+  const d=new Date(); d.setHours(0,0,0,0);
+  for(let i=0;i<365;i++){
+    const k=dateKey(new Date(d.getTime()-i*86400000));
+    if(finishedDates.has(k)) streak++;
+    else if(i>0) break;
+  }
+  const now=new Date(); const yr=now.getFullYear(), mo=now.getMonth();
+  const monthCount = allFinished.filter(s=>{const d2=new Date(s.finishedAt);return d2.getFullYear()===yr&&d2.getMonth()===mo;}).length;
+
+  document.getElementById('home-greet-sub').textContent = streak>0 ? `${streak} day streak — keep it going!` : 'Ready to train?';
+
+  // This week's completed workout types, for the quadrant widget.
+  const weekStart0 = new Date(); weekStart0.setHours(0,0,0,0); weekStart0.setDate(weekStart0.getDate()-weekStart0.getDay());
+  const thisWeekTypes = new Set(allFinished.filter(s=>s.finishedAt>=weekStart0.getTime()).map(s=>s.type));
+  const typeDefs = [
+    { key:'upper',  label:'Upper',  emoji:'🏋️' },
+    { key:'lower',  label:'Lower',  emoji:'🦵' },
+    { key:'full',   label:'Full',   emoji:'🔥' },
+    { key:'cardio', label:'Cardio', emoji:'🏃' }
+  ];
+  const quadHtml = `<div class="home-quad-card" onclick="showPage('history')">
+    <div class="home-quad-label">THIS WEEK</div>
+    <div class="home-quad-grid">
+      ${typeDefs.map(t=>{
+        const done = thisWeekTypes.has(t.key);
+        return `<div class="home-quad-cell${done?' done':''}">
+          <span>${t.emoji} ${t.label}</span>
+          <span class="home-quad-check${done?' done':''}">✓</span>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+  document.getElementById('home-rings-row').innerHTML = [
+    ringWithLabel(Math.min(100, streak/30*100), 'var(--accent)', streak, 'STREAK', 56, "showPage('history')"),
+    ringWithLabel(Math.min(100, monthCount/12*100), 'var(--blue)', monthCount, 'THIS MONTH', 56, "showPage('history')"),
+    quadHtml
+  ].join('');
+
+  renderHomeDaysStrip();
+  renderHomeDayDetail();
+  updateHomeWorkoutCard();
+}
+
+function homeWeekNav(dir) {
+  homeWeekOffset = Math.max(0, homeWeekOffset + dir);
+  renderHomeDaysStrip();
+}
+
+function toggleHomeDay(dateStr) {
+  homeExpandedDate = (homeExpandedDate === dateStr) ? null : dateStr;
+  renderHomeDaysStrip();
+  renderHomeDayDetail();
+}
+
+function renderHomeDaysStrip() {
+  const stripEl = document.getElementById('home-days-strip');
+  if(!stripEl) return;
+  const allFinished = Object.values(sessions).filter(s=>s.finishedAt);
+  const doneDates = new Set(allFinished.map(s=>sessionDisplayDate(s)).filter(Boolean));
+  const todayStr = todayKey();
+  const dowNames = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const weekStart = new Date(); weekStart.setHours(0,0,0,0);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() - homeWeekOffset*7);
+  let stripHtml = '';
+  for(let i=0;i<7;i++){
+    const dd = new Date(weekStart); dd.setDate(dd.getDate()+i);
+    const ds = dateKey(dd);
+    const isToday = ds===todayStr;
+    const isSelected = ds===homeExpandedDate;
+    const hasWorkout = doneDates.has(ds);
+    stripHtml += `<div class="home-day${isToday?' today':''}${isSelected?' selected':''}" data-date="${ds}">
+      <div class="home-day-name">${dowNames[i]}</div>
+      <div class="home-day-num">${dd.getDate()}</div>
+      <div class="home-day-dot" style="visibility:${hasWorkout?'visible':'hidden'};"></div>
+    </div>`;
+  }
+  stripEl.innerHTML = stripHtml;
+  stripEl.querySelectorAll('.home-day').forEach(el=>{
+    el.addEventListener('click', () => toggleHomeDay(el.dataset.date));
+  });
+  const nextBtn = document.getElementById('home-week-next');
+  if(nextBtn) nextBtn.disabled = homeWeekOffset===0;
+}
+
+function renderHomeDayDetail() {
+  const el = document.getElementById('home-day-detail');
+  if(!el) return;
+  if(!homeExpandedDate) { el.style.display='none'; el.innerHTML=''; return; }
+  const dateLabel = new Date(homeExpandedDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+  const daySessions = sessionsForDate(homeExpandedDate);
+  el.style.display = 'block';
+  if(!daySessions.length){
+    el.innerHTML = `<div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.06em;margin-bottom:6px;">${dateLabel.toUpperCase()}</div><div style="font-size:12px;color:var(--text3);">No workout logged.</div>`;
+    return;
+  }
+  const colors = {upper:'var(--blue)',lower:'var(--orange)',full:'var(--accent)'};
+  const rows = daySessions.map(s=>{
+    if(s.type==='cardio'){
+      const c = s.cardio||{};
+      const subLabel = {run:'Run',bike:'Bike',elliptical:'Elliptical',swim:'Swim',row:'Row',other:'Cardio'}[c.subType]||'Cardio';
+      const subEmoji = {run:'🏃',bike:'🚴',elliptical:'⚡',swim:'🏊',row:'🚣',other:'💪'}[c.subType]||'💪';
+      return `<div>
+        <div style="font-size:13px;font-weight:700;color:var(--green);">${subEmoji} ${subLabel}</div>
+        <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:2px;">${c.dist?c.dist+' mi · ':''}${s.duration?Math.round(s.duration/60)+' min':''}</div>
+      </div>`;
+    }
+    const flat = flattenExercises(s.exercises);
+    const doneEx = flat.filter(ex=>ex.sets.some(st=>st.done));
+    const vol = doneEx.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0);
+    const setsCount = doneEx.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).length,0);
+    return `<div>
+      <div style="font-size:13px;font-weight:700;color:${colors[s.type]||'var(--text)'};">${TEMPLATES[s.type]?.label||s.type}</div>
+      <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin:2px 0 4px;">${setsCount} sets · ${vol.toLocaleString()} lbs</div>
+      ${doneEx.length?`<div style="font-size:11px;color:var(--text3);">${doneEx.map(ex=>ex.name).join(', ')}</div>`:''}
+    </div>`;
+  }).join('<div style="height:1px;background:var(--border);margin:10px 0;"></div>');
+  el.innerHTML = `<div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.06em;margin-bottom:8px;">${dateLabel.toUpperCase()}</div>${rows}`;
+}
+
+function updateHomeWorkoutCard() {
+  const badgeEl = document.getElementById('home-wc-badge');
+  if(!badgeEl) return;
+  const colors = {upper:'var(--blue)',lower:'var(--orange)',full:'var(--accent)',cardio:'var(--green)'};
+  const emojis = {upper:'🏋️',lower:'🦵',full:'🔥',cardio:'🏃'};
+  badgeEl.style.color = colors[currentType];
+  badgeEl.textContent = currentType==='cardio' ? 'CARDIO' : 'STRENGTH · ' + currentType.toUpperCase();
+  document.getElementById('home-wc-title').textContent = `${emojis[currentType]} ${TEMPLATES[currentType]?.label || 'Cardio'}`;
+
+  if(currentType === 'cardio') {
+    document.getElementById('home-wc-sub').textContent = 'Run, bike, swim, row, or elliptical';
+    document.getElementById('home-wc-meta').textContent = 'Track distance, HR & pace';
+    return;
+  }
+  const names = library[currentType].flatMap(libItemNames);
+  const muscleGroups = [...new Set(names.map(n=>EXERCISE_GROUP_LOOKUP[n]).filter(Boolean))];
+  document.getElementById('home-wc-sub').textContent = muscleGroups.length
+    ? (muscleGroups.slice(0,3).join(', ') + (muscleGroups.length>3?` +${muscleGroups.length-3}`:''))
+    : `${names.length} exercises`;
+
+  const pastOfType = Object.values(sessions).filter(s=>s.finishedAt && s.type===currentType && s.duration);
+  const mins = pastOfType.length
+    ? Math.round(pastOfType.reduce((a,s)=>a+s.duration,0)/pastOfType.length/60)
+    : names.length*4 + 10;
+  document.getElementById('home-wc-meta').textContent = `~${mins} min · ${names.length} exercises`;
+}
 
 // ── STATS ─────────────────────────────────────────────────────────────────────
 function updateStats() {
@@ -2014,10 +2646,11 @@ function updateStats() {
   allFinished.forEach(s=>{
     const ft=s.finishedAt;
     if(ft>=ws.getTime()&&ft<we.getTime()){
-      wv+=s.exercises?.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0)||0;
+      wv+=flattenExercises(s.exercises).reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0);
     }
   });
   document.getElementById('s-vol').textContent=wv>999?(wv/1000).toFixed(1)+'k':wv;
+  renderHomeHero();
 }
 
 // ── HISTORY ───────────────────────────────────────────────────────────────────
@@ -2092,12 +2725,13 @@ function renderHistory() {
     }
 
     // Strength session
-    const vol=s.exercises?.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0)||0;
-    const sets=s.exercises?.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).length,0)||0;
-    const exCount=s.exercises?.filter(ex=>ex.sets.some(st=>st.done)).length||0;
+    const flatEx=flattenExercises(s.exercises);
+    const vol=flatEx.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0);
+    const sets=flatEx.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).length,0);
+    const exCount=flatEx.filter(ex=>ex.sets.some(st=>st.done)).length;
     const colors={upper:'var(--blue)',lower:'var(--orange)',full:'var(--accent)'};
     const typeColor=colors[s.type]||'var(--text)';
-    const detailRows=(s.exercises||[]).map(ex=>{
+    const detailRows=flatEx.map(ex=>{
       const doneSets=ex.sets.filter(st=>st.done);
       if(!doneSets.length) return '';
       const setsStr=doneSets.map(st=>`${st.weight}×${st.reps}`).join(', ');
@@ -2181,7 +2815,7 @@ function exerciseHistory(name) {
   const hist = [];
   Object.values(sessions).forEach(s=>{
     if(!s.finishedAt) return;
-    s.exercises?.forEach(ex=>{
+    flattenExercises(s.exercises).forEach(ex=>{
       if(ex.name!==name) return;
       const doneWeights = ex.sets.filter(st=>st.done&&st.weight>0).map(st=>st.weight);
       if(!doneWeights.length) return;
@@ -2207,6 +2841,48 @@ function sparklineHTML(hist, opts) {
 }
 
 // ── TRENDS ────────────────────────────────────────────────────────────────────
+// ── SHARED RING COMPONENT — used by the Today home hero and Trends goals ────
+function svgRing(pct, color, size, strokeWidth) {
+  size = size || 56; strokeWidth = strokeWidth || 5;
+  const r = (size - strokeWidth) / 2;
+  const c = 2 * Math.PI * r;
+  const clamped = Math.max(0, Math.min(100, pct||0));
+  const dash = c * clamped / 100;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="transform:rotate(-90deg);display:block;">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--surf3)" stroke-width="${strokeWidth}"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-dasharray="${dash} ${c}"/>
+  </svg>`;
+}
+function ringWithLabel(pct, color, valueText, labelText, size, onclick) {
+  size = size || 56;
+  return `<div class="home-ring-card"${onclick?` onclick="${onclick}"`:''}>
+    <div class="ring-wrap" style="width:${size}px;height:${size}px;">
+      ${svgRing(pct, color, size, 5)}
+      <div class="ring-val" style="font-size:${size>64?'15px':'12px'};">${valueText}</div>
+    </div>
+    <div class="home-ring-label">${labelText}</div>
+  </div>`;
+}
+function fmtNum(n) { n=n||0; return Math.abs(n)>999 ? (n/1000).toFixed(1)+'k' : Math.round(n).toLocaleString(); }
+function fmtTime(sec) {
+  sec = sec||0;
+  const h = Math.floor(sec/3600), m = Math.round((sec%3600)/60);
+  return h>0 ? `${h}h ${m}m` : `${m}m`;
+}
+// Heaviest weight ever logged (done sets only) for an exercise name — used
+// by the Trends goal rings to show progress toward a target weight.
+function bestEverWeight(name) {
+  let best = 0;
+  Object.values(sessions).forEach(s=>{
+    if(!s.finishedAt) return;
+    flattenExercises(s.exercises).forEach(ex=>{
+      if(!name || ex.name.toLowerCase()!==name.toLowerCase()) return;
+      ex.sets.forEach(st=>{ if(st.done && st.weight>best) best=st.weight; });
+    });
+  });
+  return best;
+}
+
 let chartInstances = {};
 let trendsRange = 'all';
 const TREND_RANGE_WEEKS = { '4w':4, '3m':13, '6m':26, '1y':52 };
@@ -2226,10 +2902,179 @@ function trendsRangeWeeks(allDone) {
   return Math.max(TREND_RANGE_WEEKS['4w'], weeks);
 }
 
+// Overview stat grid + cumulative "this period vs last period" chart, shown
+// at the top of Trends. Reuses the same weekly-bucket approach as the
+// weekly volume/sessions charts below so a "previous period" comparison of
+// equal length is just the same bucketing shifted back by `weeks` weeks.
+function renderOverview(allDone, weeks) {
+  const weekStart0 = new Date(); weekStart0.setHours(0,0,0,0); weekStart0.setDate(weekStart0.getDate()-weekStart0.getDay());
+  const bucketSessions = (offsetWeeks) => {
+    const arr = [];
+    for(let w=weeks-1;w>=0;w--){
+      const ws = new Date(weekStart0); ws.setDate(ws.getDate()-(w+offsetWeeks)*7);
+      const we = new Date(ws); we.setDate(we.getDate()+7);
+      const wsStr = dateKey(ws), weStr = dateKey(we);
+      arr.push(allDone.filter(s=>{ const sd=sessionDisplayDate(s)||''; return sd>=wsStr && sd<weStr; }));
+    }
+    return arr;
+  };
+  const curBuckets = bucketSessions(0);
+  const hasPrev = trendsRange !== 'all';
+  const prevBuckets = hasPrev ? bucketSessions(weeks) : null;
+
+  const statsFor = (buckets) => {
+    const inRange = buckets.flat();
+    const doneSets = inRange.flatMap(s=>flattenExercises(s.exercises)).flatMap(ex=>ex.sets.filter(st=>st.done));
+    return {
+      workouts: inRange.length,
+      lifted: doneSets.reduce((a,st)=>a+st.weight*st.reps,0),
+      reps: doneSets.reduce((a,st)=>a+st.reps,0),
+      sets: doneSets.length,
+      heaviest: doneSets.length ? Math.max(...doneSets.map(st=>st.weight)) : 0,
+      timeSec: inRange.reduce((a,s)=>a+(s.duration||0),0)
+    };
+  };
+  const cur = statsFor(curBuckets);
+  const prev = hasPrev ? statsFor(prevBuckets) : null;
+
+  const rows = [
+    { key:'workouts', label:'Workouts', color:'var(--accent)', fmt:v=>Math.round(v) },
+    { key:'lifted',   label:'Lifted',   color:'var(--blue)',   fmt:v=>fmtNum(v)+' lbs' },
+    { key:'reps',     label:'Reps',     color:'var(--orange)', fmt:v=>fmtNum(v) },
+    { key:'sets',     label:'Sets',     color:'var(--red)',    fmt:v=>Math.round(v) },
+    { key:'heaviest', label:'Heaviest', color:'var(--green)',  fmt:v=>Math.round(v)+' lbs' },
+    { key:'time',     label:'Time',     color:'#e07ad6',       fmt:v=>fmtTime(v), rawKey:'timeSec' }
+  ];
+  document.getElementById('ov-stat-grid').innerHTML = rows.map(r=>{
+    const rawKey = r.rawKey || r.key;
+    const val = cur[rawKey];
+    let deltaHtml = '';
+    if(hasPrev){
+      const prevVal = prev[rawKey];
+      const diff = val - prevVal;
+      const pct = prevVal ? Math.round(diff/prevVal*100) : (val>0?100:0);
+      const dir = diff>0?'up':diff<0?'down':'flat';
+      const sign = diff>0?'+':diff<0?'-':'±';
+      const diffDisp = r.key==='time' ? fmtTime(Math.abs(diff)) : fmtNum(Math.abs(diff));
+      deltaHtml = `<div class="ov-stat-delta ${dir}">(${sign}${diffDisp}/${sign}${Math.abs(pct)}%)</div>`;
+    }
+    return `<div class="ov-stat">
+      <div class="ov-stat-dot" style="background:${r.color};"></div>
+      <div>
+        <div class="ov-stat-label">${r.label}</div>
+        <div class="ov-stat-val">${r.fmt(val)}</div>
+        ${deltaHtml}
+      </div>
+    </div>`;
+  }).join('');
+
+  let run=0; const curCum = curBuckets.map(b=>run+=b.length);
+  let prevCum = null;
+  if(hasPrev){ run=0; prevCum = prevBuckets.map(b=>run+=b.length); }
+  const labels = curBuckets.map((_,i)=>'W'+(i+1));
+  const datasets = [
+    { type:'line', data:curCum, borderColor:'#c8f04a', backgroundColor:'#c8f04a22', borderWidth:2.5, pointRadius:0, tension:0.3, fill:true }
+  ];
+  if(prevCum) datasets.push({ type:'line', data:prevCum, borderColor:'#8a9099', backgroundColor:'transparent', borderWidth:1.5, borderDash:[4,3], pointRadius:0, tension:0.3, fill:false });
+  if(chartInstances['ov-chart']) chartInstances['ov-chart'].destroy();
+  chartInstances['ov-chart'] = new Chart(document.getElementById('ov-chart'), {
+    data:{ labels, datasets },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+      y:{ beginAtZero:true, ticks:{color:'#545c66',font:{family:'DM Mono',size:9}}, grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false} },
+      x:{ ticks:{display:false}, grid:{display:false}, border:{display:false} }
+    }}
+  });
+  document.getElementById('ov-chart-title').textContent = 'OVERVIEW — WORKOUTS · ' + TREND_RANGE_LABELS[trendsRange] + (hasPrev ? ' · VS PRIOR PERIOD' : '');
+}
+
+// 30-day workout heatmap card, independent of the range selector.
+function renderHeatmap() {
+  const grid = document.getElementById('heat-grid');
+  if(!grid) return;
+  const allFinished = Object.values(sessions).filter(s=>s.finishedAt);
+  // Match the same day a session shows under in the Log tab (sessionDisplayDate,
+  // driven by the stored s.date) rather than re-deriving one from finishedAt —
+  // keeps the heatmap and Log agreeing on which calendar day a workout counts for.
+  const doneDates = new Set(allFinished.map(s=>sessionDisplayDate(s)).filter(Boolean));
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = [];
+  for(let i=29;i>=0;i--) days.push(new Date(today.getTime()-i*86400000));
+  grid.innerHTML = days.map(d=>{
+    const hit = doneDates.has(dateKey(d));
+    return `<div class="heat-cell${hit?' hit':''}" title="${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}"></div>`;
+  }).join('');
+  const weekStart = new Date(today); weekStart.setDate(weekStart.getDate()-weekStart.getDay());
+  const weekCount = allFinished.filter(s=>s.finishedAt>=weekStart.getTime()).length;
+  document.getElementById('heat-week-count').textContent = weekCount;
+}
+
+// Goal-progress rings — target weight per lift, set via the gear-icon editor.
+function renderGoals() {
+  const row = document.getElementById('goals-row');
+  if(!row) return;
+  row.innerHTML = goals.map(g=>{
+    const best = g.exercise ? bestEverWeight(g.exercise) : 0;
+    const pct = g.target ? Math.min(100, Math.round(best/g.target*100)) : 0;
+    const color = g.target && pct>=100 ? 'var(--accent)' : 'var(--blue)';
+    const centerText = g.target ? pct+'%' : 'SET';
+    return `<div class="goal-card" onclick="openGoalsEditor()">
+      <div class="ring-wrap" style="width:68px;height:68px;">
+        ${svgRing(pct, color, 68, 6)}
+        <div class="ring-val" style="font-size:15px;">${centerText}</div>
+      </div>
+      <div class="goal-name">${g.name}${g.target?` ${g.target}`:''}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── GOALS EDITOR ─────────────────────────────────────────────────────────────
+function openGoalsEditor() { renderGoalsEditList(); showOverlay('goals-overlay'); }
+function closeGoalsEditor() { closeOverlay('goals-overlay'); renderGoals(); }
+function renderGoalsEditList() {
+  const list = document.getElementById('goals-edit-list');
+  list.innerHTML = goals.map(g=>`
+    <div class="metric-row">
+      <div style="flex:1;padding-right:10px;">
+        <input class="sheet-input" style="margin:0 0 6px;font-size:13px;padding:8px 10px;width:100%;box-sizing:border-box;" value="${g.name}" placeholder="Goal name" data-goal="${g.id}" data-field="name">
+        <input class="sheet-input" style="margin:0;font-size:12px;padding:7px 10px;width:100%;box-sizing:border-box;" value="${g.exercise||''}" placeholder="Exercise (e.g. Barbell Squat)" data-goal="${g.id}" data-field="exercise">
+      </div>
+      <input class="metric-input" style="width:78px;" type="number" value="${g.target||''}" placeholder="lbs" data-goal="${g.id}" data-field="target">
+      <button class="lib-del-btn" style="margin-left:8px;" data-goal-del="${g.id}">✕</button>
+    </div>`).join('');
+  list.querySelectorAll('input[data-goal]').forEach(inp=>{
+    inp.addEventListener('input', () => updateGoalField(inp.dataset.goal, inp.dataset.field, inp.value));
+  });
+  list.querySelectorAll('button[data-goal-del]').forEach(btn=>{
+    btn.addEventListener('click', () => removeGoal(btn.dataset.goalDel));
+  });
+}
+function updateGoalField(id, field, value) {
+  const g = goals.find(x=>x.id===id);
+  if(!g) return;
+  g[field] = field==='target' ? (value?parseFloat(value):null) : value;
+  saveGoals();
+  renderGoals();
+}
+function removeGoal(id) {
+  goals = goals.filter(g=>g.id!==id);
+  saveGoals();
+  renderGoalsEditList();
+  renderGoals();
+}
+function addGoalRow() {
+  goals.push({ id:'g-'+Date.now(), name:'New Goal', exercise:'', target:null });
+  saveGoals();
+  renderGoalsEditList();
+  renderGoals();
+}
+
 function renderTrends() {
   document.querySelectorAll('.trend-range-btn').forEach(b=>b.classList.toggle('active', b.dataset.range===trendsRange));
   const allDone = Object.values(sessions).filter(s=>s.finishedAt);
   const weeks = trendsRangeWeeks(allDone);
+  renderOverview(allDone, weeks);
+  renderHeatmap();
+  renderGoals();
   const weekLabels=[], sessionData=[], volData=[];
   for(let w=weeks-1;w>=0;w--){
     const ws=new Date(); ws.setHours(0,0,0,0); ws.setDate(ws.getDate()-ws.getDay()-w*7);
@@ -2240,7 +3085,7 @@ function renderTrends() {
       const sd = sessionDisplayDate(s)||'';
       if(sd>=wsStr && sd<weStr){
         sc++;
-        wv+=s.exercises?.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0)||0;
+        wv+=flattenExercises(s.exercises).reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0);
       }
     });
     weekLabels.push(ws.toLocaleDateString('en-US',{month:'short',day:'numeric'}));
@@ -2279,7 +3124,7 @@ function renderTrends() {
   // Best lifts — ranked list, each row showing the low/high weight across the
   // last 10 sessions that exercise appears in, with a bar sparkline of the trend.
   const bl=document.getElementById('best-lifts');
-  const exNames=[...new Set(allDone.flatMap(s=>(s.exercises||[]).map(ex=>ex.name)))];
+  const exNames=[...new Set(allDone.flatMap(s=>flattenExercises(s.exercises).map(ex=>ex.name)))];
   const exRows=exNames.map(name=>({name, hist:exerciseHistory(name)}))
     .filter(r=>r.hist.length)
     .map(r=>({...r, high:Math.max(...r.hist)}))
@@ -2378,28 +3223,135 @@ function showImportStatus(msg, isError=false) {
 }
 
 // ── LIBRARY ───────────────────────────────────────────────────────────────────
+// Library "⛓ Group" select mode — per section, lets you pick 2+ standalone
+// exercises and merge them into a superset in place.
+let libSelectMode = { upper:false, lower:false, full:false };
+let libSelected = { upper:new Set(), lower:new Set(), full:new Set() };
+
 function renderLibrary() {
   ['upper','lower','full'].forEach(type => {
-    // Active list
     const container = document.getElementById('lib-'+type+'-list');
-    const exs = library[type];
+    const items = library[type];
+    const selMode = libSelectMode[type];
+    document.getElementById('lib-selbar-'+type).style.display = selMode ? 'flex' : 'none';
+    document.getElementById('lib-selcount-'+type).textContent = libSelected[type].size + ' selected';
+    document.getElementById('lib-selmode-'+type).classList.toggle('active', selMode);
     container.innerHTML = '';
-    exs.forEach((name, i) => {
-      const row = document.createElement('div');
-      row.className = 'lib-ex-row';
-      row.innerHTML = `
-        <div class="lib-ex-name">${name}</div>
-        <button class="lib-move-btn" id="lib-edit-${type}-${i}" title="Rename">✎</button>
-        <button class="lib-move-btn" id="lib-up-${type}-${i}" ${i===0?'disabled':''}>▲</button>
-        <button class="lib-move-btn" id="lib-dn-${type}-${i}" ${i===exs.length-1?'disabled':''}>▼</button>
-        <button class="lib-del-btn" id="lib-del-${type}-${i}" title="Remove">✕</button>`;
-      row.querySelector('#lib-edit-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libRenameEx(type, i); });
-      row.querySelector('#lib-up-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libMoveEx(type, i, -1); });
-      row.querySelector('#lib-dn-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libMoveEx(type, i,  1); });
-      row.querySelector('#lib-del-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libRemoveEx(type, i); });
-      container.appendChild(row);
+    items.forEach((item, i) => {
+      container.appendChild(isSuperset(item)
+        ? buildLibSupersetCard(type, item, i, items.length)
+        : buildLibExRow(type, item, i, items.length, selMode));
     });
   });
+}
+
+function buildLibExRow(type, name, i, total, selMode) {
+  const row = document.createElement('div');
+  row.className = 'lib-ex-row' + (selMode ? ' selectable' : '');
+  const checked = libSelected[type].has(i);
+  row.innerHTML = `
+    ${selMode ? `<div class="lib-check ${checked?'checked':''}" id="lib-chk-${type}-${i}"></div>` : ''}
+    <div class="lib-ex-name">${name}</div>
+    ${selMode ? '' : `
+      <button class="lib-move-btn" id="lib-edit-${type}-${i}" title="Rename">✎</button>
+      <button class="lib-move-btn" id="lib-up-${type}-${i}" ${i===0?'disabled':''}>▲</button>
+      <button class="lib-move-btn" id="lib-dn-${type}-${i}" ${i===total-1?'disabled':''}>▼</button>
+      <button class="lib-del-btn" id="lib-del-${type}-${i}" title="Remove">✕</button>`}`;
+  if(selMode) {
+    row.addEventListener('click', () => toggleLibSelect(type, i));
+  } else {
+    row.querySelector('#lib-edit-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libRenameEx(type, i); });
+    row.querySelector('#lib-up-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libMoveEx(type, i, -1); });
+    row.querySelector('#lib-dn-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libMoveEx(type, i,  1); });
+    row.querySelector('#lib-del-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libRemoveEx(type, i); });
+  }
+  return row;
+}
+
+function buildLibSupersetCard(type, item, i, total) {
+  const card = document.createElement('div');
+  card.className = 'ss-card';
+  card.innerHTML = `
+    <div class="ss-badge-row">
+      <span class="ss-badge">⛓ SUPERSET</span>
+      <span class="ss-badge-actions">
+        <button class="lib-move-btn" id="lib-ss-up-${type}-${i}" ${i===0?'disabled':''}>▲</button>
+        <button class="lib-move-btn" id="lib-ss-dn-${type}-${i}" ${i===total-1?'disabled':''}>▼</button>
+        <button class="lib-move-btn" id="lib-ss-ungroup-${type}-${i}" title="Ungroup">✂</button>
+        <button class="lib-del-btn" id="lib-ss-del-${type}-${i}" title="Remove group">✕</button>
+      </span>
+    </div>
+    ${item.superset.map((n,mi)=>`
+      <div class="ss-member-row">
+        <div class="lib-ex-name">${n}</div>
+        <button class="lib-del-btn" id="lib-ss-rm-${type}-${i}-${mi}" title="Remove from group">✕</button>
+      </div>`).join('')}
+    <input class="sheet-input" style="margin:8px 0 0;font-size:13px;padding:8px 10px;width:100%;box-sizing:border-box;" placeholder="+ add exercise to this group..." id="lib-ss-add-${type}-${i}" data-suggest-for="lib-ss-suggest-${type}-${i}" autocomplete="off">
+    <div class="ex-suggest-list" id="lib-ss-suggest-${type}-${i}" style="margin-top:6px;"></div>`;
+  card.querySelector('#lib-ss-up-'+type+'-'+i).addEventListener('click', () => libMoveEx(type, i, -1));
+  card.querySelector('#lib-ss-dn-'+type+'-'+i).addEventListener('click', () => libMoveEx(type, i, 1));
+  card.querySelector('#lib-ss-ungroup-'+type+'-'+i).addEventListener('click', () => libUngroupSuperset(type, i));
+  card.querySelector('#lib-ss-del-'+type+'-'+i).addEventListener('click', () => libRemoveEx(type, i));
+  item.superset.forEach((n,mi)=>{
+    card.querySelector(`#lib-ss-rm-${type}-${i}-${mi}`).addEventListener('click', () => libRemoveFromSuperset(type, i, mi));
+  });
+  const addInput = card.querySelector('#lib-ss-add-'+type+'-'+i);
+  const addBox = card.querySelector('#lib-ss-suggest-'+type+'-'+i);
+  addInput.addEventListener('input', () => renderExerciseSearchResults(addInput.value, addBox, addInput, (name)=>{
+    libAddToSupersetGroup(type, i, name);
+  }, true));
+  return card;
+}
+
+function toggleLibSelectMode(type) {
+  libSelectMode[type] = !libSelectMode[type];
+  libSelected[type].clear();
+  renderLibrary();
+}
+function toggleLibSelect(type, i) {
+  const set = libSelected[type];
+  if(set.has(i)) set.delete(i); else set.add(i);
+  renderLibrary();
+}
+function groupLibSelected(type) {
+  const idxs = [...libSelected[type]].sort((a,b)=>a-b);
+  if(idxs.length < 2) { showToast('Select at least 2 exercises'); return; }
+  const items = library[type];
+  const names = idxs.map(idx=>items[idx]).flatMap(libItemNames);
+  for(let k=idxs.length-1;k>=0;k--) items.splice(idxs[k],1);
+  items.splice(idxs[0], 0, { superset: names });
+  libSelectMode[type] = false;
+  libSelected[type].clear();
+  saveLibrary();
+  renderLibrary();
+  showToast('Grouped into superset');
+}
+function libUngroupSuperset(type, i) {
+  const item = library[type][i];
+  if(!isSuperset(item)) return;
+  library[type].splice(i, 1, ...item.superset);
+  saveLibrary();
+  renderLibrary();
+  showToast('Superset ungrouped');
+}
+function libRemoveFromSuperset(type, i, mi) {
+  const item = library[type][i];
+  if(!isSuperset(item)) return;
+  item.superset.splice(mi, 1);
+  if(item.superset.length <= 1) library[type].splice(i, 1, ...item.superset);
+  saveLibrary();
+  renderLibrary();
+}
+function libAddToSupersetGroup(type, i, name) {
+  const item = library[type][i];
+  if(!isSuperset(item)) return;
+  if(!item.superset.includes(name)) item.superset.push(name);
+  // Drop any separate standalone entry for the same exercise in this list —
+  // it now lives inside the group instead of also sitting on its own.
+  library[type] = library[type].filter(it => it !== name);
+  saveLibrary();
+  renderLibrary();
+  showToast('Added to superset');
 }
 
 // Search-as-you-type add flow for each Library section — the exercise bank
@@ -2412,7 +3364,7 @@ function renderLibAddSuggestions(type, filter) {
 }
 
 function libAddExFromSearch(type, name) {
-  const alreadyIn = library[type].includes(name);
+  const alreadyIn = library[type].flatMap(libItemNames).includes(name);
   if(!alreadyIn){ library[type].push(name); saveLibrary(); renderLibrary(); }
   document.getElementById('lib-add-input-'+type).value = '';
   document.getElementById('lib-add-suggest-'+type).innerHTML = '';
@@ -2446,16 +3398,27 @@ function libRemoveEx(type, i) {
 function renameExerciseEverywhere(oldName, newName) {
   if(!newName || newName===oldName) return false;
   let changed = false;
-  Object.values(sessions).forEach(s=>s.exercises?.forEach(ex=>{
+  Object.values(sessions).forEach(s=>flattenExercises(s.exercises).forEach(ex=>{
     if(ex.name===oldName){ ex.name=newName; changed=true; }
   }));
   if(changed) save(SESSIONS_KEY, sessions);
   ['upper','lower','full'].forEach(type=>{
-    const idx=(library[type]||[]).indexOf(oldName);
-    if(idx>=0){
-      if(library[type].includes(newName)) library[type].splice(idx,1);
-      else library[type][idx]=newName;
-      changed=true;
+    const list = library[type]||[];
+    for(let i=list.length-1;i>=0;i--){
+      const item = list[i];
+      if(isSuperset(item)){
+        const idx = item.superset.indexOf(oldName);
+        if(idx<0) continue;
+        changed = true;
+        if(item.superset.includes(newName)) item.superset.splice(idx,1);
+        else item.superset[idx] = newName;
+        if(item.superset.length<=1) list[i] = item.superset[0]; // collapse back to a plain entry
+      } else if(item===oldName){
+        changed = true;
+        const dupIdx = list.findIndex((it,j)=>j!==i && (it===newName || (isSuperset(it)&&it.superset.includes(newName))));
+        if(dupIdx>=0) list.splice(i,1);
+        else list[i] = newName;
+      }
     }
   });
   if(changed){ saveLibrary(); syncToSheets(); }
