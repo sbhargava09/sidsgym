@@ -345,16 +345,18 @@ body{display:flex;flex-direction:column;}
 .goal-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;}
 .goal-name{font-size:11px;color:var(--text2);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .goal-add-card{background:var(--surf);border:1px dashed var(--border2);border-radius:var(--r);display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:24px;cursor:pointer;min-height:96px;}
-.heat-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;}
-.heat-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;}
-.heat-title{font-size:13px;font-weight:700;color:var(--text);}
-.heat-sub{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);margin-top:2px;}
-.heat-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin-bottom:10px;}
-.heat-cell{aspect-ratio:1;border-radius:3px;background:var(--surf3);}
-.heat-cell.hit{background:var(--orange);}
-.heat-cell.future{background:transparent;}
-.heat-foot{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text2);cursor:pointer;padding-top:8px;border-top:1px solid var(--border);}
-.heat-foot b{color:var(--text);font-size:15px;}
+.heat-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;max-width:260px;margin:0 auto;}
+.heat-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.heat-title{font-size:11px;font-weight:700;color:var(--text);letter-spacing:0.02em;}
+.cal-nav-btn{background:var(--surf2);border:1px solid var(--border2);border-radius:6px;width:20px;height:20px;color:var(--text2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;}
+.cal-nav-btn:disabled{opacity:0.25;pointer-events:none;}
+.cal-dow-row{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px;}
+.cal-dow-row div{text-align:center;font-size:8px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.02em;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text3);border-radius:5px;}
+.cal-cell.pad{visibility:hidden;}
+.cal-cell.hit{background:var(--orange-dim);color:var(--orange);font-weight:700;}
+.cal-cell.today{border:1px solid var(--accent);color:var(--accent);font-weight:700;}
 </style>
 </head>
 <body>
@@ -572,16 +574,12 @@ body{display:flex;flex-direction:column;}
   <div class="trend-section">
     <div class="heat-card">
       <div class="heat-head">
-        <div>
-          <div class="heat-title">Workouts</div>
-          <div class="heat-sub">LAST 30 DAYS</div>
-        </div>
+        <button class="cal-nav-btn" onclick="calNav(-1)">‹</button>
+        <div class="heat-title" id="cal-month-label">Month</div>
+        <button class="cal-nav-btn" id="cal-next-btn" onclick="calNav(1)">›</button>
       </div>
-      <div class="heat-grid" id="heat-grid"></div>
-      <div class="heat-foot" onclick="showPage('history')">
-        <span><b id="heat-week-count">0</b> this week</span>
-        <span>›</span>
-      </div>
+      <div class="cal-dow-row"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
+      <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
 
@@ -882,6 +880,79 @@ body{display:flex;flex-direction:column;}
     <div style="padding:12px 20px 4px;">
       <button class="sheet-save-btn" style="margin:0;" onclick="addGoalRow()">+ Add Goal</button>
     </div>
+  </div>
+</div>
+
+<!-- SESSION EDITOR OVERLAY — edit a past workout, or log one retroactively -->
+<div class="overlay" id="edit-session-overlay">
+  <div class="metrics-sheet" style="max-height:88vh;">
+    <div class="sheet-header">
+      <div>
+        <div style="font-size:15px;font-weight:700;" id="es-title">Edit Workout</div>
+        <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px;" id="es-subtitle"></div>
+      </div>
+      <div class="sheet-close" onclick="closeSessionEditor()">✕</div>
+    </div>
+    <div style="padding:0 20px 4px;">
+      <div class="type-bar" id="es-type-bar" style="margin-bottom:14px;display:none;">
+        <div class="type-btn" onclick="esSetType('upper')" id="es-tb-upper">🏋️ UPPER</div>
+        <div class="type-btn" onclick="esSetType('lower')" id="es-tb-lower">🦵 LOWER</div>
+        <div class="type-btn" onclick="esSetType('full')" id="es-tb-full">🔥 FULL</div>
+        <div class="type-btn" onclick="esSetType('cardio')" id="es-tb-cardio">🏃 CARDIO</div>
+      </div>
+
+      <div id="es-strength-view">
+        <div id="es-ex-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+        <button class="add-ex-btn" style="margin-top:0;" onclick="esShowAddExercise()">+ Add Exercise</button>
+      </div>
+
+      <div id="es-cardio-view" style="display:none;">
+        <div class="cardio-form">
+          <div class="cardio-row">
+            <div class="cardio-row-label">ACTIVITY TYPE</div>
+            <div class="cardio-subtype-grid">
+              <button class="cardio-sub-btn" onclick="esSetCardioSub('run')" id="es-csub-run">🏃 Run</button>
+              <button class="cardio-sub-btn" onclick="esSetCardioSub('bike')" id="es-csub-bike">🚴 Bike</button>
+              <button class="cardio-sub-btn" onclick="esSetCardioSub('elliptical')" id="es-csub-elliptical">⚡ Elliptical</button>
+              <button class="cardio-sub-btn" onclick="esSetCardioSub('swim')" id="es-csub-swim">🏊 Swim</button>
+              <button class="cardio-sub-btn" onclick="esSetCardioSub('row')" id="es-csub-row">🚣 Row</button>
+              <button class="cardio-sub-btn" onclick="esSetCardioSub('other')" id="es-csub-other">• Other</button>
+            </div>
+          </div>
+          <div class="cardio-row">
+            <div class="cardio-row-label">DISTANCE</div>
+            <div class="cardio-field"><div><div class="cardio-field-label">Distance</div><div class="cardio-field-unit">miles</div></div><input class="cardio-input" id="es-c-dist" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
+          </div>
+          <div class="cardio-row">
+            <div class="cardio-row-label">DURATION</div>
+            <div class="cardio-field"><div><div class="cardio-field-label">Duration</div><div class="cardio-field-unit">minutes</div></div><input class="cardio-input" id="es-c-dur" type="number" inputmode="numeric" placeholder="—"></div>
+          </div>
+          <div class="cardio-row">
+            <div class="cardio-row-label">HEART RATE</div>
+            <div class="cardio-field"><div><div class="cardio-field-label">Avg HR</div><div class="cardio-field-unit">bpm</div></div><input class="cardio-input" id="es-c-hr" type="number" inputmode="numeric" placeholder="—"></div>
+          </div>
+          <div class="cardio-row">
+            <div class="cardio-row-label">CALORIES</div>
+            <div class="cardio-field"><div><div class="cardio-field-label">Calories burned</div><div class="cardio-field-unit">kcal</div></div><input class="cardio-input" id="es-c-cal" type="number" inputmode="numeric" placeholder="—"></div>
+          </div>
+          <div class="cardio-row">
+            <div class="cardio-row-label">EFFORT LEVEL</div>
+            <div class="cardio-effort-row">
+              <button class="effort-btn" onclick="esSetEffort('easy')" id="es-eff-easy">Easy</button>
+              <button class="effort-btn" onclick="esSetEffort('moderate')" id="es-eff-moderate">Moderate</button>
+              <button class="effort-btn" onclick="esSetEffort('tempo')" id="es-eff-tempo">Tempo</button>
+              <button class="effort-btn" onclick="esSetEffort('hard')" id="es-eff-hard">Hard</button>
+              <button class="effort-btn" onclick="esSetEffort('intervals')" id="es-eff-intervals">Intervals</button>
+            </div>
+          </div>
+          <div class="cardio-row">
+            <div class="cardio-row-label">NOTES</div>
+            <textarea class="cardio-notes" id="es-c-notes" placeholder="How did it feel? Route, conditions, etc."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="sheet-save-btn" style="margin:8px 20px 16px;" onclick="saveSessionEditor()">SAVE WORKOUT</button>
   </div>
 </div>
 
@@ -2241,7 +2312,7 @@ function closeDrum() { closeOverlay('drum-overlay'); }
 
 // ── ADD EXERCISE ──────────────────────────────────────────────────────────────
 function showAddExercise() { showOverlay('add-ex-overlay'); renderExSuggestions(''); setTimeout(()=>document.getElementById('ex-name-input').focus(),300); }
-function closeAddExercise() { closeOverlay('add-ex-overlay'); document.getElementById('ex-name-input').value=''; document.getElementById('ex-suggest-list').innerHTML=''; pendingSupersetTargetEi = null; }
+function closeAddExercise() { closeOverlay('add-ex-overlay'); document.getElementById('ex-name-input').value=''; document.getElementById('ex-suggest-list').innerHTML=''; pendingSupersetTargetEi = null; esAddExerciseMode = false; }
 
 // Every exercise name worth searching: the full tagged catalog plus whatever
 // is already active (custom entries typed in before might not be in the
@@ -2365,6 +2436,18 @@ function saveNewExercise() {
   // came from the catalog or was already in some active list.
   const existing = allSearchableExercises().find(n=>n.toLowerCase()===raw.toLowerCase());
   const name = existing || raw;
+  if(esAddExerciseMode) {
+    const esType = esSession.type;
+    if(esType!=='cardio' && library[esType] && !library[esType].flatMap(libItemNames).includes(name)){
+      library[esType].push(name);
+      saveLibrary();
+    }
+    esSession.exercises.push({ name, sets: [{weight:50, reps:10, done:true}] });
+    esAddExerciseMode = false;
+    closeAddExercise();
+    esRenderExerciseList();
+    return;
+  }
   // Whether picked from the catalog or freshly typed, make sure it's on
   // today's active list going forward — not just in this one session.
   if(library[currentType] && !library[currentType].flatMap(libItemNames).includes(name)){
@@ -2461,7 +2544,7 @@ function closeOverlay(id){ document.getElementById(id).classList.remove('show');
 // homeWeekOffset/homeExpandedDate are declared earlier (near currentType)
 // since updateStats() renders this hero during init, before this point.
 function sessionsForDate(dateStr) {
-  return Object.values(sessions).filter(s=>s.finishedAt && sessionDisplayDate(s)===dateStr);
+  return Object.entries(sessions).filter(([,s])=>s.finishedAt && sessionDisplayDate(s)===dateStr);
 }
 
 function renderHomeHero() {
@@ -2563,33 +2646,253 @@ function renderHomeDayDetail() {
   if(!homeExpandedDate) { el.style.display='none'; el.innerHTML=''; return; }
   const dateLabel = new Date(homeExpandedDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
   const daySessions = sessionsForDate(homeExpandedDate);
+  const todayStr = todayKey();
   el.style.display = 'block';
   if(!daySessions.length){
-    el.innerHTML = `<div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.06em;margin-bottom:6px;">${dateLabel.toUpperCase()}</div><div style="font-size:12px;color:var(--text3);">No workout logged.</div>`;
+    let msg;
+    if(homeExpandedDate > todayStr) {
+      msg = `<div style="font-size:12px;color:var(--text3);">This day hasn't happened yet.</div>`;
+    } else if(homeExpandedDate === todayStr) {
+      msg = `<div style="font-size:12px;color:var(--text3);">No workout logged yet — start one above.</div>`;
+    } else {
+      msg = `<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">No workout logged.</div>
+        <button class="add-ex-btn" style="margin-top:0;" id="home-log-prev-btn">LOG PREVIOUS WORKOUT</button>`;
+    }
+    el.innerHTML = `<div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.06em;margin-bottom:6px;">${dateLabel.toUpperCase()}</div>${msg}`;
+    const logBtn = document.getElementById('home-log-prev-btn');
+    if(logBtn) logBtn.addEventListener('click', () => openLogPreviousWorkout(homeExpandedDate));
     return;
   }
   const colors = {upper:'var(--blue)',lower:'var(--orange)',full:'var(--accent)'};
-  const rows = daySessions.map(s=>{
+  const rowsHtml = daySessions.map(([id,s])=>{
     if(s.type==='cardio'){
       const c = s.cardio||{};
       const subLabel = {run:'Run',bike:'Bike',elliptical:'Elliptical',swim:'Swim',row:'Row',other:'Cardio'}[c.subType]||'Cardio';
       const subEmoji = {run:'🏃',bike:'🚴',elliptical:'⚡',swim:'🏊',row:'🚣',other:'💪'}[c.subType]||'💪';
-      return `<div>
-        <div style="font-size:13px;font-weight:700;color:var(--green);">${subEmoji} ${subLabel}</div>
-        <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:2px;">${c.dist?c.dist+' mi · ':''}${s.duration?Math.round(s.duration/60)+' min':''}</div>
+      return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--green);">${subEmoji} ${subLabel}</div>
+          <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:2px;">${c.dist?c.dist+' mi · ':''}${s.duration?Math.round(s.duration/60)+' min':''}</div>
+        </div>
+        <button class="lib-tool-btn" data-edit-id="${id}">Edit</button>
       </div>`;
     }
     const flat = flattenExercises(s.exercises);
     const doneEx = flat.filter(ex=>ex.sets.some(st=>st.done));
     const vol = doneEx.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0);
     const setsCount = doneEx.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).length,0);
-    return `<div>
-      <div style="font-size:13px;font-weight:700;color:${colors[s.type]||'var(--text)'};">${TEMPLATES[s.type]?.label||s.type}</div>
-      <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin:2px 0 4px;">${setsCount} sets · ${vol.toLocaleString()} lbs</div>
-      ${doneEx.length?`<div style="font-size:11px;color:var(--text3);">${doneEx.map(ex=>ex.name).join(', ')}</div>`:''}
+    return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:${colors[s.type]||'var(--text)'};">${TEMPLATES[s.type]?.label||s.type}</div>
+        <div style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;margin:2px 0 4px;">${setsCount} sets · ${vol.toLocaleString()} lbs</div>
+        ${doneEx.length?`<div style="font-size:11px;color:var(--text3);">${doneEx.map(ex=>ex.name).join(', ')}</div>`:''}
+      </div>
+      <button class="lib-tool-btn" data-edit-id="${id}">Edit</button>
     </div>`;
   }).join('<div style="height:1px;background:var(--border);margin:10px 0;"></div>');
-  el.innerHTML = `<div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.06em;margin-bottom:8px;">${dateLabel.toUpperCase()}</div>${rows}`;
+  el.innerHTML = `<div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:0.06em;margin-bottom:8px;">${dateLabel.toUpperCase()}</div>${rowsHtml}`;
+  el.querySelectorAll('[data-edit-id]').forEach(btn=>{
+    btn.addEventListener('click', () => openSessionEditor(btn.dataset.editId));
+  });
+}
+
+// ── SESSION EDITOR — edit an existing finished session in place, or build a ──
+// new one from scratch for a past day ("Log Previous Workout"). Works on a
+// plain esSession object (a shallow copy for edits, a fresh one for new
+// entries) and only writes back into `sessions` when Save is tapped.
+let esSessionId = null;
+let esSession = null;
+let esIsNew = false;
+// Set by esShowAddExercise() right before opening the shared Add Exercise
+// overlay, so saveNewExercise() knows to append into esSession instead of
+// the live currentSession.
+let esAddExerciseMode = false;
+let esCardioSub = 'run';
+let esEffort = '';
+
+function openSessionEditor(sessionId) {
+  const s = sessions[sessionId];
+  if(!s) return;
+  esSessionId = sessionId;
+  esIsNew = false;
+  // Flatten any superset groups into individual exercise entries for editing
+  // — trades away the grouping metadata for a simple editing UI, but every
+  // logged weight/rep/done value is preserved losslessly.
+  esSession = {
+    ...s,
+    exercises: s.exercises ? flattenExercises(s.exercises).map(ex=>({ name: ex.name, sets: ex.sets.map(st=>({...st})) })) : undefined
+  };
+  document.getElementById('es-title').textContent = 'Edit Workout';
+  document.getElementById('es-subtitle').textContent = new Date((sessionDisplayDate(s)||todayKey())+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+  document.getElementById('es-type-bar').style.display = 'none'; // type is fixed once logged
+  const isCardio = esSession.type === 'cardio';
+  document.getElementById('es-strength-view').style.display = isCardio ? 'none' : 'block';
+  document.getElementById('es-cardio-view').style.display = isCardio ? 'block' : 'none';
+  if(isCardio){
+    const c = esSession.cardio || {};
+    esSetCardioSub(c.subType || 'run');
+    esSetEffort(c.effort || '');
+    document.getElementById('es-c-dist').value = c.dist ?? '';
+    document.getElementById('es-c-dur').value = esSession.duration ? Math.round(esSession.duration/60) : '';
+    document.getElementById('es-c-hr').value = c.avgHr ?? '';
+    document.getElementById('es-c-cal').value = c.calories ?? '';
+    document.getElementById('es-c-notes').value = c.notes || '';
+  } else {
+    esRenderExerciseList();
+  }
+  showOverlay('edit-session-overlay');
+}
+
+function openLogPreviousWorkout(dateStr) {
+  esSessionId = dateStr + '_' + Date.now() + '_upper';
+  esIsNew = true;
+  const ts = new Date(dateStr+'T12:00:00').getTime();
+  esSession = { type:'upper', startedAt: ts, finishedAt: ts, date: dateStr, exercises: [] };
+  document.getElementById('es-title').textContent = 'Log Previous Workout';
+  document.getElementById('es-subtitle').textContent = new Date(dateStr+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+  document.getElementById('es-type-bar').style.display = 'grid';
+  esSetType('upper');
+  showOverlay('edit-session-overlay');
+}
+
+function closeSessionEditor() {
+  closeOverlay('edit-session-overlay');
+  esSessionId = null; esSession = null; esIsNew = false;
+}
+
+function esSetType(t) {
+  if(!esSession) return;
+  esSession.type = t;
+  ['upper','lower','full','cardio'].forEach(x=>{
+    const btn = document.getElementById('es-tb-'+x);
+    if(btn) btn.className = 'type-btn' + (x===t ? ' active-'+x : '');
+  });
+  const isCardio = t === 'cardio';
+  document.getElementById('es-strength-view').style.display = isCardio ? 'none' : 'block';
+  document.getElementById('es-cardio-view').style.display = isCardio ? 'block' : 'none';
+  if(!isCardio){
+    if(!esSession.exercises) esSession.exercises = [];
+    esRenderExerciseList();
+  }
+}
+function esSetCardioSub(sub) {
+  esCardioSub = sub;
+  ['run','bike','elliptical','swim','row','other'].forEach(s=>{
+    const btn = document.getElementById('es-csub-'+s);
+    if(btn) btn.className = 'cardio-sub-btn' + (s===sub?' active':'');
+  });
+}
+function esSetEffort(e) {
+  esEffort = e;
+  ['easy','moderate','tempo','hard','intervals'].forEach(x=>{
+    const btn = document.getElementById('es-eff-'+x);
+    if(btn) btn.className = 'effort-btn' + (x===e?' active':'');
+  });
+}
+
+function esRenderExerciseList() {
+  const list = document.getElementById('es-ex-list');
+  if(!list || !esSession) return;
+  list.innerHTML = '';
+  (esSession.exercises||[]).forEach((ex, ei) => {
+    const card = document.createElement('div');
+    card.className = 'ex-card';
+    card.innerHTML = `
+      <div style="padding:12px 14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div class="ex-name">${ex.name}</div>
+          <button class="lib-del-btn" id="es-rm-${ei}">✕</button>
+        </div>
+        <div class="sets-header">
+          <div class="sets-col-label">#</div>
+          <div class="sets-col-label">LBS</div>
+          <div class="sets-col-label">REPS</div>
+          <div></div>
+        </div>
+        ${ex.sets.map((s,si)=>`
+          <div class="set-row" style="grid-template-columns:24px 1fr 1fr 32px 28px;">
+            <div class="set-num">${si+1}</div>
+            <input class="set-val" style="border:1px solid var(--border2);cursor:text;user-select:auto;" type="number" inputmode="decimal" value="${s.weight}" id="es-wt-${ei}-${si}">
+            <input class="set-val" style="border:1px solid var(--border2);cursor:text;user-select:auto;" type="number" inputmode="numeric" value="${s.reps}" id="es-rp-${ei}-${si}">
+            <div class="set-check ${s.done?'done':''}" id="es-chk-${ei}-${si}"></div>
+            <button class="del-set-btn" id="es-delset-${ei}-${si}">✕</button>
+          </div>`).join('')}
+        <button class="add-set-btn" id="es-addset-${ei}">+ Add Set</button>
+      </div>`;
+    list.appendChild(card);
+    card.querySelector('#es-rm-'+ei).addEventListener('click', () => esRemoveExercise(ei));
+    ex.sets.forEach((_s, si) => {
+      card.querySelector('#es-wt-'+ei+'-'+si).addEventListener('input', e => esUpdateSet(ei, si, 'weight', e.target.value));
+      card.querySelector('#es-rp-'+ei+'-'+si).addEventListener('input', e => esUpdateSet(ei, si, 'reps', e.target.value));
+      card.querySelector('#es-chk-'+ei+'-'+si).addEventListener('click', () => esToggleSet(ei, si));
+      card.querySelector('#es-delset-'+ei+'-'+si).addEventListener('click', () => esDeleteSet(ei, si));
+    });
+    card.querySelector('#es-addset-'+ei).addEventListener('click', () => esAddSet(ei));
+  });
+}
+function esUpdateSet(ei, si, field, val) {
+  const n = parseFloat(val);
+  esSession.exercises[ei].sets[si][field] = isNaN(n) ? 0 : n;
+}
+function esToggleSet(ei, si) {
+  const s = esSession.exercises[ei].sets[si];
+  s.done = !s.done;
+  esRenderExerciseList();
+}
+function esAddSet(ei) {
+  const ex = esSession.exercises[ei];
+  const last = ex.sets[ex.sets.length-1] || {weight:50, reps:10};
+  ex.sets.push({ weight:last.weight, reps:last.reps, done:true });
+  esRenderExerciseList();
+}
+function esDeleteSet(ei, si) {
+  const ex = esSession.exercises[ei];
+  if(ex.sets.length<=1) return;
+  ex.sets.splice(si,1);
+  esRenderExerciseList();
+}
+function esRemoveExercise(ei) {
+  esSession.exercises.splice(ei,1);
+  esRenderExerciseList();
+}
+function esShowAddExercise() {
+  esAddExerciseMode = true;
+  showAddExercise();
+}
+
+function saveSessionEditor() {
+  if(!esSession) return;
+  if(esSession.type === 'cardio'){
+    const dist = parseFloat(document.getElementById('es-c-dist').value)||null;
+    const durMin = parseFloat(document.getElementById('es-c-dur').value)||null;
+    esSession.cardio = {
+      subType: esCardioSub,
+      dist,
+      avgHr: parseFloat(document.getElementById('es-c-hr').value)||null,
+      maxHr: null,
+      calories: parseFloat(document.getElementById('es-c-cal').value)||null,
+      effort: esEffort,
+      notes: document.getElementById('es-c-notes').value.trim()||null,
+      pace: null
+    };
+    if(durMin) esSession.duration = Math.round(durMin*60);
+  } else if(!esSession.exercises || !esSession.exercises.length){
+    showToast('Add at least one exercise');
+    return;
+  }
+  if(!esSession.finishedAt) esSession.finishedAt = esSession.startedAt || Date.now();
+  sessions[esSessionId] = esSession;
+  save(SESSIONS_KEY, sessions);
+  updateStats();
+  if(cloudLoaded) syncToSheets();
+  syncSessionToRTDB(esSessionId);
+  showToast(esIsNew ? 'Workout logged' : 'Workout updated');
+  closeSessionEditor();
+  renderHomeDaysStrip();
+  renderHomeDayDetail();
+  const activeId = document.querySelector('.page.active')?.id;
+  if(activeId==='page-history') renderHistory();
+  if(activeId==='page-trends') renderTrends();
 }
 
 function updateHomeWorkoutCard() {
@@ -2988,24 +3291,39 @@ function renderOverview(allDone, weeks) {
 }
 
 // 30-day workout heatmap card, independent of the range selector.
-function renderHeatmap() {
-  const grid = document.getElementById('heat-grid');
+// Minimal Sun–Sat month calendar with worked-out days highlighted. calMonthOffset
+// is 0 for the current month, 1 for one month back, etc. — capped at 0 so you
+// can't page into the future.
+let calMonthOffset = 0;
+function calNav(delta) {
+  calMonthOffset = Math.max(0, calMonthOffset - delta);
+  renderCalendar();
+}
+function renderCalendar() {
+  const grid = document.getElementById('cal-grid');
   if(!grid) return;
   const allFinished = Object.values(sessions).filter(s=>s.finishedAt);
   // Match the same day a session shows under in the Log tab (sessionDisplayDate,
   // driven by the stored s.date) rather than re-deriving one from finishedAt —
-  // keeps the heatmap and Log agreeing on which calendar day a workout counts for.
+  // keeps the calendar and Log agreeing on which calendar day a workout counts for.
   const doneDates = new Set(allFinished.map(s=>sessionDisplayDate(s)).filter(Boolean));
-  const today = new Date(); today.setHours(0,0,0,0);
-  const days = [];
-  for(let i=29;i>=0;i--) days.push(new Date(today.getTime()-i*86400000));
-  grid.innerHTML = days.map(d=>{
-    const hit = doneDates.has(dateKey(d));
-    return `<div class="heat-cell${hit?' hit':''}" title="${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}"></div>`;
-  }).join('');
-  const weekStart = new Date(today); weekStart.setDate(weekStart.getDate()-weekStart.getDay());
-  const weekCount = allFinished.filter(s=>s.finishedAt>=weekStart.getTime()).length;
-  document.getElementById('heat-week-count').textContent = weekCount;
+  const now = new Date();
+  const viewDate = new Date(now.getFullYear(), now.getMonth()-calMonthOffset, 1);
+  const y = viewDate.getFullYear(), m = viewDate.getMonth();
+  document.getElementById('cal-month-label').textContent = viewDate.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  document.getElementById('cal-next-btn').disabled = calMonthOffset===0;
+  const firstDow = new Date(y,m,1).getDay();
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const todayStr = todayKey();
+  let html = '';
+  for(let i=0;i<firstDow;i++) html += `<div class="cal-cell pad"></div>`;
+  for(let day=1; day<=daysInMonth; day++){
+    const ds = dateKey(new Date(y,m,day));
+    const hit = doneDates.has(ds);
+    const isToday = ds===todayStr;
+    html += `<div class="cal-cell${hit?' hit':''}${isToday?' today':''}">${day}</div>`;
+  }
+  grid.innerHTML = html;
 }
 
 // Goal-progress rings — target weight per lift, set via the gear-icon editor.
@@ -3033,10 +3351,11 @@ function closeGoalsEditor() { closeOverlay('goals-overlay'); renderGoals(); }
 function renderGoalsEditList() {
   const list = document.getElementById('goals-edit-list');
   list.innerHTML = goals.map(g=>`
-    <div class="metric-row">
+    <div class="metric-row" style="align-items:flex-start;">
       <div style="flex:1;padding-right:10px;">
         <input class="sheet-input" style="margin:0 0 6px;font-size:13px;padding:8px 10px;width:100%;box-sizing:border-box;" value="${g.name}" placeholder="Goal name" data-goal="${g.id}" data-field="name">
-        <input class="sheet-input" style="margin:0;font-size:12px;padding:7px 10px;width:100%;box-sizing:border-box;" value="${g.exercise||''}" placeholder="Exercise (e.g. Barbell Squat)" data-goal="${g.id}" data-field="exercise">
+        <input class="sheet-input" style="margin:0;font-size:12px;padding:7px 10px;width:100%;box-sizing:border-box;" value="${g.exercise||''}" placeholder="Tap to choose exercise" id="goal-ex-input-${g.id}" data-goal="${g.id}" data-field="exercise" data-suggest-for="goal-ex-suggest-${g.id}" autocomplete="off">
+        <div class="ex-suggest-list" id="goal-ex-suggest-${g.id}" style="margin:4px 0 0;"></div>
       </div>
       <input class="metric-input" style="width:78px;" type="number" value="${g.target||''}" placeholder="lbs" data-goal="${g.id}" data-field="target">
       <button class="lib-del-btn" style="margin-left:8px;" data-goal-del="${g.id}">✕</button>
@@ -3044,8 +3363,36 @@ function renderGoalsEditList() {
   list.querySelectorAll('input[data-goal]').forEach(inp=>{
     inp.addEventListener('input', () => updateGoalField(inp.dataset.goal, inp.dataset.field, inp.value));
   });
+  // Exercise picker — shows every exercise with its all-time max weight,
+  // filtered as you type, reusing the shared ex-suggest-list styling.
+  list.querySelectorAll('input[data-suggest-for]').forEach(inp=>{
+    const show = () => renderGoalExerciseOptions(inp.dataset.goal, inp.value);
+    inp.addEventListener('input', show);
+    inp.addEventListener('focus', show);
+  });
   list.querySelectorAll('button[data-goal-del]').forEach(btn=>{
     btn.addEventListener('click', () => removeGoal(btn.dataset.goalDel));
+  });
+}
+function renderGoalExerciseOptions(goalId, filter) {
+  const boxEl = document.getElementById('goal-ex-suggest-'+goalId);
+  if(!boxEl) return;
+  const q = (filter||'').trim().toLowerCase();
+  const names = allSearchableExercises();
+  const matches = (q ? names.filter(n=>n.toLowerCase().includes(q)) : names)
+    .map(n=>({ n, w: bestEverWeight(n) }))
+    .sort((a,b)=>a.n.localeCompare(b.n))
+    .slice(0, 60);
+  if(!matches.length){ boxEl.innerHTML = '<div class="ex-suggest-empty">No matches</div>'; return; }
+  boxEl.innerHTML = matches.map(m=>
+    `<div class="ex-suggest-item" data-name="${m.n}"><div class="ex-suggest-name">${m.n}</div><div class="ex-suggest-tag" style="color:var(--text3);">${m.w?m.w+' lbs':'—'}</div></div>`
+  ).join('');
+  boxEl.querySelectorAll('.ex-suggest-item').forEach(el=>{
+    el.addEventListener('click', () => {
+      updateGoalField(goalId, 'exercise', el.dataset.name);
+      document.getElementById('goal-ex-input-'+goalId).value = el.dataset.name;
+      boxEl.innerHTML = '';
+    });
   });
 }
 function updateGoalField(id, field, value) {
@@ -3073,7 +3420,7 @@ function renderTrends() {
   const allDone = Object.values(sessions).filter(s=>s.finishedAt);
   const weeks = trendsRangeWeeks(allDone);
   renderOverview(allDone, weeks);
-  renderHeatmap();
+  renderCalendar();
   renderGoals();
   const weekLabels=[], sessionData=[], volData=[];
   for(let w=weeks-1;w>=0;w--){
