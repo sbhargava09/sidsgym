@@ -382,9 +382,9 @@ body{display:flex;flex-direction:column;}
   <div class="tab active" onclick="showPage('today')">TODAY</div>
   <div class="tab" onclick="showPage('history')">LOG</div>
   <div class="tab" onclick="showPage('trends')">TRENDS</div>
-  <div class="tab" onclick="showPage('health')">HEALTH</div>
   <div class="tab" onclick="showPage('body')">BODY</div>
   <div class="tab" onclick="showPage('library')">LIBRARY</div>
+  <div class="tab" onclick="showPage('health')" style="font-size:15px;">⚙️</div>
 </div>
 
 <div class="scroll">
@@ -991,9 +991,11 @@ const LIBRARY_KEY  = 'sidsgym_library';
 const METRICS_KEY  = 'sidsgym_custom_metrics';
 const BODY_KEY     = 'sidsgym_body'; // { height:{ft,in}, measurements:{key:[{val,date,ts}]} }
 const DELETED_SESSIONS_KEY = 'sidsgym_deleted_sessions'; // tombstones — ids deleted locally, so a merge-pull can't resurrect them
-const DATA_SCHEMA  = 4;
-const APP_VERSION  = 'v5.0';
+const DATA_SCHEMA  = 5;
+const APP_VERSION  = 'v5.1';
 const GOALS_KEY    = 'sidsgym_goals';
+const EXERCISE_TIMING_KEY = 'sidsgym_exercise_timing'; // { [exerciseName]: {totalMs, totalSets} } — learned pace per exercise
+const TYPE_OVERHEAD_KEY   = 'sidsgym_type_overhead';   // { upper|lower|full: {totalMs, count} } — learned warmup/cooldown/break time
 
 // Firebase project config — safe to keep public; the RTDB security rules
 // (database.rules.json) are the actual access gate, not this object.
@@ -1152,6 +1154,8 @@ const DEFAULT_GOALS = [
   { id:'g-deadlift', name:'Deadlift',     exercise:'Deadlift',             target:null }
 ];
 let goals         = load(GOALS_KEY, DEFAULT_GOALS);
+let exerciseTiming = load(EXERCISE_TIMING_KEY, {});
+let typeOverhead   = load(TYPE_OVERHEAD_KEY, {});
 let cloudLoaded   = false; // becomes true once we've recalled (or attempted) the cloud copy
 let rtdbBase = null; // declared here (not down in the RTDB sync block) so early-init code
                       // paths — e.g. migrateLibraryV41() calling saveLibrary() — can safely
@@ -1175,7 +1179,9 @@ function saveLibrary() {
   rtdbSetLibrary(library);
 }
 
-function saveGoals() { save(GOALS_KEY, goals); if(cloudLoaded) syncToSheets(); }
+function saveGoals() { save(GOALS_KEY, goals); if(cloudLoaded) syncToSheets(); rtdbSetGoals(goals); }
+function saveExerciseTiming() { save(EXERCISE_TIMING_KEY, exerciseTiming); if(cloudLoaded) syncToSheets(); rtdbSetExerciseTiming(exerciseTiming); }
+function saveTypeOverhead() { save(TYPE_OVERHEAD_KEY, typeOverhead); if(cloudLoaded) syncToSheets(); rtdbSetTypeOverhead(typeOverhead); }
 
 // ── SUPERSETS ──────────────────────────────────────────────────────────────
 // A library item is either a plain exercise-name string, or a grouped
@@ -1222,6 +1228,15 @@ let workoutPausedTotal = 0;   // total ms spent paused
 let currentSession = null;
 let currentSessionId = null; // unique ID for this session
 let currentDateKey = null;   // YYYY-MM-DD, kept for health log
+
+// Per-exercise pace learning — how long each exercise's card was expanded
+// this session (a proxy for "time spent on that exercise, including its own
+// rest breaks"), keyed by exercise name so it survives reordering. Reset at
+// the start of every workout and folded into the all-time exerciseTiming
+// store when the workout finishes. Only tracks standalone (non-superset)
+// cards, since supersets have no open/close toggle of their own.
+let exerciseOpenTimers = {};    // name -> Date.now() when its card was opened
+let sessionExerciseTimeLog = {}; // name -> accumulated open ms this session
 
 // Phase timers
 const PHASE_DUR = 5 * 60;
@@ -1288,7 +1303,7 @@ function showPage(id) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
-  const tabs = ['today','history','trends','health','body','library'];
+  const tabs = ['today','history','trends','body','library','health'];
   document.querySelectorAll('.tab')[tabs.indexOf(id)]?.classList.add('active');
   if(id==='history') renderHistory();
   if(id==='trends') renderTrends();
@@ -1416,6 +1431,8 @@ function startWorkout() {
   currentSessionId = makeSessionKey(currentType); // unique key per session
   currentDateKey = todayKey(); // date only, for health log
   currentSession = makeSession(currentType);
+  exerciseOpenTimers = {};
+  sessionExerciseTimeLog = {};
   workoutStarted = true;
   workoutStartTime = Date.now();
   document.getElementById('start-btn').style.display = 'none';
@@ -1437,6 +1454,8 @@ function startWorkout() {
 function rebuildSession() {
   if(!workoutStarted) return;
   currentSession = makeSession(currentType);
+  exerciseOpenTimers = {};
+  sessionExerciseTimeLog = {};
   renderExercises();
 }
 
@@ -1741,6 +1760,79 @@ function toggleEx(ei) {
   const chev = document.getElementById('chev-'+ei);
   const open = body.classList.toggle('open');
   chev.classList.toggle('open', open);
+  const ex = currentSession?.exercises?.[ei];
+  if(!ex || !ex.name) return; // superset cards have no open/close toggle
+  if(open) exerciseOpenTimers[ex.name] = Date.now();
+  else accumulateExerciseOpenTime(ex.name);
+}
+
+// Stops a running open-timer for `name` (if any) and folds its elapsed time
+// into this session's running log. Idempotent — safe to call on a name with
+// no timer running.
+function accumulateExerciseOpenTime(name) {
+  const openedAt = exerciseOpenTimers[name];
+  if(!openedAt) return;
+  delete exerciseOpenTimers[name];
+  sessionExerciseTimeLog[name] = (sessionExerciseTimeLog[name]||0) + (Date.now() - openedAt);
+}
+
+// Adds this session's worth of open-time observations into the all-time
+// per-exercise pace store, and (for strength types) folds the leftover time
+// — total duration minus every exercise's open time — into that workout
+// type's overhead store (warmup, cooldown, and time between exercises).
+// Called once, right before finishWorkout() saves the session.
+function learnFromSession() {
+  if(currentSession.type === 'cardio' || !currentSession.exercises) return;
+  // Close out any card the user left open when they hit Finish.
+  Object.keys(exerciseOpenTimers).forEach(name => accumulateExerciseOpenTime(name));
+  Object.entries(sessionExerciseTimeLog).forEach(([name, ms]) => {
+    const ex = currentSession.exercises.find(e => e.name === name); // standalone entries only — matches the toggleEx guard above
+    const doneSets = ex ? ex.sets.filter(s=>s.done).length : 0;
+    if(doneSets > 0) recordExerciseTiming(name, ms, doneSets);
+  });
+  const exerciseTimeSum = Object.values(sessionExerciseTimeLog).reduce((a,b)=>a+b, 0);
+  const overheadMs = Math.max(0, currentSession.duration*1000 - exerciseTimeSum);
+  recordTypeOverhead(currentSession.type, overheadMs);
+}
+function recordExerciseTiming(name, ms, sets) {
+  const t = exerciseTiming[name] || { totalMs:0, totalSets:0 };
+  t.totalMs += ms;
+  t.totalSets += sets;
+  exerciseTiming[name] = t;
+  saveExerciseTiming();
+}
+function recordTypeOverhead(type, ms) {
+  const t = typeOverhead[type] || { totalMs:0, count:0 };
+  t.totalMs += ms;
+  t.count += 1;
+  typeOverhead[type] = t;
+  saveTypeOverhead();
+}
+
+// Personalized workout-length estimate for a strength type. Until there's
+// any personal data (fresh install), returns the exact same flat guess this
+// always used (exercises × 4 min + 10 for warmup/cooldown) — see the "no
+// data yet" comment below. Once at least one exercise or one overhead sample
+// has been learned, it switches to summing each exercise's own learned
+// seconds-per-set (falling back to a generic default for exercises not yet
+// personally timed) plus the learned average overhead for this type.
+const DEFAULT_SEC_PER_SET = 90; // generic assumption for an untimed exercise: ~90s per working set including its rest
+const DEFAULT_OVERHEAD_MIN = 10; // generic assumption for warmup+cooldown+transitions
+function estimateWorkoutMinutes(type) {
+  const names = library[type].flatMap(libItemNames);
+  const flatDefault = names.length*4 + 10; // unchanged legacy default — see function comment
+  const ov = typeOverhead[type];
+  const hasOverheadData = ov && ov.count > 0;
+  const hasAnyTimingData = names.some(n => exerciseTiming[n] && exerciseTiming[n].totalSets > 0);
+  if(!hasAnyTimingData && !hasOverheadData) return flatDefault;
+  const totalSec = names.reduce((sum, name) => {
+    const plannedSets = getLastSets(name).length || 3;
+    const t = exerciseTiming[name];
+    const secPerSet = (t && t.totalSets>0) ? (t.totalMs/t.totalSets/1000) : DEFAULT_SEC_PER_SET;
+    return sum + secPerSet*plannedSets;
+  }, 0);
+  const overheadMin = hasOverheadData ? (ov.totalMs/ov.count/60000) : DEFAULT_OVERHEAD_MIN;
+  return Math.max(1, Math.round(totalSec/60 + overheadMin));
 }
 
 function toggleSet(ei, si, subIdx) {
@@ -1819,6 +1911,7 @@ function finishWorkout() {
   // Duration excludes time spent paused
   const totalPaused = workoutPausedTotal + (workoutPaused && workoutPausedAt ? Date.now()-workoutPausedAt : 0);
   currentSession.duration = Math.round((currentSession.finishedAt - currentSession.startedAt - totalPaused)/1000);
+  learnFromSession();
   saveSession();
   clearInterval(workoutTimerInterval);
   document.getElementById('nav-timer').classList.remove('active');
@@ -1891,7 +1984,19 @@ function setSheetsUrl(url){ localStorage.setItem('sidsgym_sheets_url', url.trim(
 // from its own stored state, instead of just seeing a smaller `sessions` and
 // merging the "missing" ones right back in from what it already has.
 function collectState() {
-  return { sessions, health: healthLog, library, customMetrics, bodyData, deletedSessionIds };
+  return { sessions, health: healthLog, library, customMetrics, bodyData, deletedSessionIds, goals, exerciseTiming, typeOverhead };
+}
+
+// exerciseTiming/typeOverhead are cumulative aggregates (not append-only
+// logs), so a sync pull can't safely union them the way keyed collections
+// are unioned — summing on every pull would double-count. Instead, whichever
+// side has more total observations is treated as more complete and wins
+// outright, mirroring the "last full pull wins" semantics already used for
+// library/bodyData elsewhere in this file.
+function mergeAggregateStats(local, incoming) {
+  if(!incoming || typeof incoming !== 'object') return local;
+  const totalCount = obj => Object.values(obj||{}).reduce((a,v)=>a+(v.totalSets||v.count||0),0);
+  return totalCount(incoming) > totalCount(local) ? incoming : local;
 }
 
 // Union two keyed collections (id -> object). Incoming wins on key conflicts,
@@ -1947,6 +2052,18 @@ function applyCloudState(state) {
     bodyData = state.bodyData;
     saveBody();
   }
+  if(Array.isArray(state.goals) && state.goals.length) {
+    goals = state.goals;
+    save(GOALS_KEY, goals);
+  }
+  if(state.exerciseTiming) {
+    exerciseTiming = mergeAggregateStats(exerciseTiming, state.exerciseTiming);
+    save(EXERCISE_TIMING_KEY, exerciseTiming);
+  }
+  if(state.typeOverhead) {
+    typeOverhead = mergeAggregateStats(typeOverhead, state.typeOverhead);
+    save(TYPE_OVERHEAD_KEY, typeOverhead);
+  }
 
   // Refresh whatever is currently on screen so recalled data shows immediately.
   updateStats();
@@ -1978,7 +2095,7 @@ function loadFromSheets() {
 function pushToSheets(opts) {
   opts = opts || {};
   const url = getSheetsUrl();
-  if(!url){ if(opts.announce) showToast('⚠ No Sheets URL — add it in Health tab'); return Promise.resolve(); }
+  if(!url){ if(opts.announce) showToast('⚠ No Sheets URL — add it in Settings tab'); return Promise.resolve(); }
   if(opts.announce) showToast('Syncing to Google Sheets…');
   return fetch(url, {
     method:'POST',
@@ -2028,7 +2145,7 @@ function connectRTDB() {
 
 function disconnectRTDB() {
   if(rtdbBase) {
-    ['sessions','health','library','customMetrics/vars','customMetrics/logs','bodyData/height','bodyData/measurements','deletedSessionIds']
+    ['sessions','health','library','customMetrics/vars','customMetrics/logs','bodyData/height','bodyData/measurements','deletedSessionIds','goals','exerciseTiming','typeOverhead']
       .forEach(p => rtdbBase.child(p).off());
   }
   rtdbBase = null;
@@ -2051,6 +2168,9 @@ function applyRTDBRoot(state) {
   if(state.bodyData && state.bodyData.height) applyRTDBHeight(state.bodyData.height);
   if(state.bodyData && state.bodyData.measurements) applyRTDBMeasurements(state.bodyData.measurements);
   if(state.deletedSessionIds) applyRTDBTombstones(state.deletedSessionIds);
+  if(state.goals) applyRTDBGoals(state.goals);
+  if(state.exerciseTiming) applyRTDBExerciseTiming(state.exerciseTiming);
+  if(state.typeOverhead) applyRTDBTypeOverhead(state.typeOverhead);
 }
 
 // Live listeners — one per top-level child, so unrelated changes don't
@@ -2064,6 +2184,9 @@ function attachRTDBListeners() {
   rtdbBase.child('bodyData/height').on('value', s => applyRTDBHeight(s.val()));
   rtdbBase.child('bodyData/measurements').on('value', s => applyRTDBMeasurements(s.val()||{}));
   rtdbBase.child('deletedSessionIds').on('value', s => applyRTDBTombstones(s.val()||{}));
+  rtdbBase.child('goals').on('value', s => { if(s.exists()) applyRTDBGoals(s.val()); });
+  rtdbBase.child('exerciseTiming').on('value', s => { if(s.exists()) applyRTDBExerciseTiming(s.val()); });
+  rtdbBase.child('typeOverhead').on('value', s => { if(s.exists()) applyRTDBTypeOverhead(s.val()); });
 }
 
 // Union-merge helpers mirror applyCloudState()'s Sheets semantics: incoming
@@ -2129,6 +2252,21 @@ function applyRTDBMeasurements(remote) {
   refreshActivePage();
 }
 
+function applyRTDBGoals(remote) {
+  if(!Array.isArray(remote) || !remote.length) return;
+  goals = remote;
+  save(GOALS_KEY, goals);
+  refreshActivePage();
+}
+function applyRTDBExerciseTiming(remote) {
+  exerciseTiming = mergeAggregateStats(exerciseTiming, remote);
+  save(EXERCISE_TIMING_KEY, exerciseTiming);
+}
+function applyRTDBTypeOverhead(remote) {
+  typeOverhead = mergeAggregateStats(typeOverhead, remote);
+  save(TYPE_OVERHEAD_KEY, typeOverhead);
+}
+
 function applyRTDBTombstones(remote) {
   Object.keys(remote).forEach(id => {
     if(!deletedSessionIds.includes(id)) deletedSessionIds.push(id);
@@ -2167,6 +2305,9 @@ function rtdbRemoveCMLog(ts) { if(!rtdbBase) return; rtdbBase.child('customMetri
 function rtdbSetHeight(obj) { if(!rtdbBase) return; rtdbBase.child('bodyData/height').set(obj); }
 function rtdbSetMeasurement(measId, entry) { if(!rtdbBase) return; rtdbBase.child('bodyData/measurements/'+measId+'/'+entry.ts).set(entry); }
 function rtdbRemoveMeasurement(measId, ts) { if(!rtdbBase) return; rtdbBase.child('bodyData/measurements/'+measId+'/'+ts).remove(); }
+function rtdbSetGoals(obj) { if(!rtdbBase) return; rtdbBase.child('goals').set(obj); }
+function rtdbSetExerciseTiming(obj) { if(!rtdbBase) return; rtdbBase.child('exerciseTiming').set(obj); }
+function rtdbSetTypeOverhead(obj) { if(!rtdbBase) return; rtdbBase.child('typeOverhead').set(obj); }
 
 // Debounced per-session push (saveSession() fires on every set toggle).
 function syncSessionToRTDB(id) {
@@ -2915,10 +3056,7 @@ function updateHomeWorkoutCard() {
     ? (muscleGroups.slice(0,3).join(', ') + (muscleGroups.length>3?` +${muscleGroups.length-3}`:''))
     : `${names.length} exercises`;
 
-  const pastOfType = Object.values(sessions).filter(s=>s.finishedAt && s.type===currentType && s.duration);
-  const mins = pastOfType.length
-    ? Math.round(pastOfType.reduce((a,s)=>a+s.duration,0)/pastOfType.length/60)
-    : names.length*4 + 10;
+  const mins = estimateWorkoutMinutes(currentType);
   document.getElementById('home-wc-meta').textContent = `~${mins} min · ${names.length} exercises`;
 }
 
@@ -3499,7 +3637,10 @@ function exportData() {
     health: healthLog,
     library: library,
     customMetrics: customMetrics,
-    bodyData: bodyData
+    bodyData: bodyData,
+    goals: goals,
+    exerciseTiming: exerciseTiming,
+    typeOverhead: typeOverhead
   };
   const json = JSON.stringify(payload, null, 2);
   const blob = new Blob([json], {type: 'application/json'});
@@ -3547,6 +3688,18 @@ function importData(event) {
       if (data.bodyData) {
         bodyData = data.bodyData;
         saveBody();
+      }
+      if (Array.isArray(data.goals) && data.goals.length) {
+        goals = data.goals;
+        saveGoals();
+      }
+      if (data.exerciseTiming) {
+        exerciseTiming = mergeAggregateStats(exerciseTiming, data.exerciseTiming);
+        saveExerciseTiming();
+      }
+      if (data.typeOverhead) {
+        typeOverhead = mergeAggregateStats(typeOverhead, data.typeOverhead);
+        saveTypeOverhead();
       }
       save(SESSIONS_KEY, sessions);
       save(HEALTH_KEY, healthLog);
