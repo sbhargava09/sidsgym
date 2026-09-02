@@ -225,6 +225,8 @@ body{display:flex;flex-direction:column;}
 .lib-move-btn{background:var(--surf2);border:none;border-radius:4px;color:var(--text3);font-size:12px;width:26px;height:26px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
 .lib-move-btn:active{background:var(--surf3);color:var(--text);}
 .lib-move-btn:disabled{opacity:0.2;pointer-events:none;}
+.lib-bw-btn{background:var(--surf2);border:none;border-radius:4px;color:var(--text3);font-size:10px;font-weight:700;font-family:'DM Mono',monospace;width:26px;height:26px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.lib-bw-btn.active{background:var(--accent-dim);color:var(--accent);}
 .lib-del-btn{background:var(--red-dim);border:none;border-radius:4px;color:var(--red);font-size:14px;width:26px;height:26px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;}
 /* MEASUREMENTS */
 .meas-diagram-wrap{position:relative;width:100%;max-width:340px;margin:0 auto 16px;}
@@ -873,7 +875,7 @@ body{display:flex;flex-direction:column;}
     <div class="sheet-header">
       <div>
         <div style="font-size:15px;font-weight:700;">Edit Goals</div>
-        <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:3px;">Target weight per lift, in lbs</div>
+        <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:3px;">Target weight in lbs, or reps for bodyweight exercises</div>
       </div>
       <div class="sheet-close" onclick="closeGoalsEditor()">✕</div>
     </div>
@@ -995,6 +997,7 @@ const DELETED_SESSIONS_KEY = 'sidsgym_deleted_sessions'; // tombstones — ids d
 const DATA_SCHEMA  = 5;
 const APP_VERSION  = 'v5.1';
 const GOALS_KEY    = 'sidsgym_goals';
+const BW_EX_KEY    = 'sidsgym_bw_exercises'; // exercise names logged as bodyweight-only (no added weight) — goals/trends track reps for these instead of weight
 const EXERCISE_TIMING_KEY = 'sidsgym_exercise_timing'; // { [exerciseName]: {totalMs, totalSets} } — learned pace per exercise
 const TYPE_OVERHEAD_KEY   = 'sidsgym_type_overhead';   // { upper|lower|full: {totalMs, count} } — learned warmup/cooldown/break time
 const DEFAULT_SEC_PER_SET = 90; // generic assumption for an untimed exercise: ~90s per working set including its rest
@@ -1157,6 +1160,8 @@ const DEFAULT_GOALS = [
   { id:'g-deadlift', name:'Deadlift',     exercise:'Deadlift',             target:null }
 ];
 let goals         = load(GOALS_KEY, DEFAULT_GOALS);
+const DEFAULT_BW_EXERCISES = ['Pull-Ups','Chin-Ups','Sit-Ups','Dips'];
+let bwExercises   = load(BW_EX_KEY, DEFAULT_BW_EXERCISES);
 let exerciseTiming = load(EXERCISE_TIMING_KEY, {});
 let typeOverhead   = load(TYPE_OVERHEAD_KEY, {});
 let cloudLoaded   = false; // becomes true once we've recalled (or attempted) the cloud copy
@@ -1183,6 +1188,21 @@ function saveLibrary() {
 }
 
 function saveGoals() { save(GOALS_KEY, goals); if(cloudLoaded) syncToSheets(); rtdbSetGoals(goals); }
+
+// Bodyweight exercises (pull-ups, sit-ups, dips, etc.) log 0 added weight —
+// goals/trends/history track reps for these instead of weight. Case-insensitive
+// so a rename that only changes casing doesn't silently drop the flag.
+function isBodyweightEx(name) {
+  if(!name) return false;
+  const q = name.toLowerCase();
+  return bwExercises.some(n=>n.toLowerCase()===q);
+}
+function toggleBodyweightEx(name) {
+  const i = bwExercises.findIndex(n=>n.toLowerCase()===name.toLowerCase());
+  if(i>=0) bwExercises.splice(i,1); else bwExercises.push(name);
+  saveBwExercises();
+}
+function saveBwExercises() { save(BW_EX_KEY, bwExercises); if(cloudLoaded) syncToSheets(); rtdbSetBwExercises(bwExercises); }
 function saveExerciseTiming() { save(EXERCISE_TIMING_KEY, exerciseTiming); if(cloudLoaded) syncToSheets(); rtdbSetExerciseTiming(exerciseTiming); }
 function saveTypeOverhead() { save(TYPE_OVERHEAD_KEY, typeOverhead); if(cloudLoaded) syncToSheets(); rtdbSetTypeOverhead(typeOverhead); }
 
@@ -1400,6 +1420,7 @@ function sessionDate(k){ return k.slice(0,10); } // extract YYYY-MM-DD from key
 function getLastSets(exName) {
   // Return the full set array from the most recent finished session containing this exercise.
   // This preserves per-set weight/rep differences (e.g. warm-up set vs working sets).
+  const defaultWeight = isBodyweightEx(exName) ? 0 : 50;
   const sorted = Object.values(sessions)
     .filter(s => s.startedAt && s.finishedAt)
     .sort((a,b) => b.finishedAt - a.finishedAt);
@@ -1408,10 +1429,10 @@ function getLastSets(exName) {
     const ex = flattenExercises(s.exercises).find(e => e.name === exName);
     if(!ex || !ex.sets?.length) continue;
     // Return previous sets stripped of done-flag, keeping weight+reps per set
-    return ex.sets.map(st => ({ weight: st.weight||50, reps: st.reps||10, done: false }));
+    return ex.sets.map(st => ({ weight: st.weight||defaultWeight, reps: st.reps||10, done: false }));
   }
   // No history — return default 4 sets
-  return Array.from({length:4}, () => ({ weight:50, reps:10, done:false }));
+  return Array.from({length:4}, () => ({ weight:defaultWeight, reps:10, done:false }));
 }
 
 function makeSession(type) {
@@ -1570,12 +1591,19 @@ function setsHeaderHTML() {
     <div></div>
   </div>`;
 }
+// Weight of 0 means "no added weight" — shown as "Body weight" instead of "0"
+// so a bodyweight set (pull-ups, dips, sit-ups) reads naturally; the field is
+// still a plain number under the hood, so adding weight later (e.g. a weighted
+// dip belt) just shows the number as normal.
+function weightCellHTML(w) {
+  return w===0 ? `<span style="font-size:10px;">Body weight</span>` : w;
+}
 function setRowsHTML(ei, subIdx, sets) {
   const suf = subIdx==null ? `${ei}` : `${ei}-${subIdx}`;
   return sets.map((s,si)=>`
     <div class="set-row" id="set-${suf}-${si}" style="grid-template-columns:24px 1fr 1fr 32px 28px;">
       <div class="set-num">${si+1}</div>
-      <div class="set-val ${s.done?'done-val':''}" id="wt-${suf}-${si}">${s.weight}</div>
+      <div class="set-val ${s.done?'done-val':''}" id="wt-${suf}-${si}">${weightCellHTML(s.weight)}</div>
       <div class="set-val ${s.done?'done-val':''}" id="rp-${suf}-${si}">${s.reps}</div>
       <div class="set-check ${s.done?'done':''}" id="chk-${suf}-${si}"></div>
       <button class="del-set-btn" id="delset-${suf}-${si}">✕</button>
@@ -1988,7 +2016,7 @@ function setSheetsUrl(url){ localStorage.setItem('sidsgym_sheets_url', url.trim(
 // from its own stored state, instead of just seeing a smaller `sessions` and
 // merging the "missing" ones right back in from what it already has.
 function collectState() {
-  return { sessions, health: healthLog, library, customMetrics, bodyData, deletedSessionIds, goals, exerciseTiming, typeOverhead };
+  return { sessions, health: healthLog, library, customMetrics, bodyData, deletedSessionIds, goals, exerciseTiming, typeOverhead, bwExercises };
 }
 
 // exerciseTiming/typeOverhead are cumulative aggregates (not append-only
@@ -2059,6 +2087,10 @@ function applyCloudState(state) {
   if(Array.isArray(state.goals) && state.goals.length) {
     goals = state.goals;
     save(GOALS_KEY, goals);
+  }
+  if(Array.isArray(state.bwExercises) && state.bwExercises.length) {
+    bwExercises = state.bwExercises;
+    save(BW_EX_KEY, bwExercises);
   }
   if(state.exerciseTiming) {
     exerciseTiming = mergeAggregateStats(exerciseTiming, state.exerciseTiming);
@@ -2149,7 +2181,7 @@ function connectRTDB() {
 
 function disconnectRTDB() {
   if(rtdbBase) {
-    ['sessions','health','library','customMetrics/vars','customMetrics/logs','bodyData/height','bodyData/measurements','deletedSessionIds','goals','exerciseTiming','typeOverhead']
+    ['sessions','health','library','customMetrics/vars','customMetrics/logs','bodyData/height','bodyData/measurements','deletedSessionIds','goals','bwExercises','exerciseTiming','typeOverhead']
       .forEach(p => rtdbBase.child(p).off());
   }
   rtdbBase = null;
@@ -2173,6 +2205,7 @@ function applyRTDBRoot(state) {
   if(state.bodyData && state.bodyData.measurements) applyRTDBMeasurements(state.bodyData.measurements);
   if(state.deletedSessionIds) applyRTDBTombstones(state.deletedSessionIds);
   if(state.goals) applyRTDBGoals(state.goals);
+  if(state.bwExercises) applyRTDBBwExercises(state.bwExercises);
   if(state.exerciseTiming) applyRTDBExerciseTiming(state.exerciseTiming);
   if(state.typeOverhead) applyRTDBTypeOverhead(state.typeOverhead);
 }
@@ -2189,6 +2222,7 @@ function attachRTDBListeners() {
   rtdbBase.child('bodyData/measurements').on('value', s => applyRTDBMeasurements(s.val()||{}));
   rtdbBase.child('deletedSessionIds').on('value', s => applyRTDBTombstones(s.val()||{}));
   rtdbBase.child('goals').on('value', s => { if(s.exists()) applyRTDBGoals(s.val()); });
+  rtdbBase.child('bwExercises').on('value', s => { if(s.exists()) applyRTDBBwExercises(s.val()); });
   rtdbBase.child('exerciseTiming').on('value', s => { if(s.exists()) applyRTDBExerciseTiming(s.val()); });
   rtdbBase.child('typeOverhead').on('value', s => { if(s.exists()) applyRTDBTypeOverhead(s.val()); });
 }
@@ -2262,6 +2296,12 @@ function applyRTDBGoals(remote) {
   save(GOALS_KEY, goals);
   refreshActivePage();
 }
+function applyRTDBBwExercises(remote) {
+  if(!Array.isArray(remote) || !remote.length) return;
+  bwExercises = remote;
+  save(BW_EX_KEY, bwExercises);
+  refreshActivePage();
+}
 function applyRTDBExerciseTiming(remote) {
   exerciseTiming = mergeAggregateStats(exerciseTiming, remote);
   save(EXERCISE_TIMING_KEY, exerciseTiming);
@@ -2310,6 +2350,7 @@ function rtdbSetHeight(obj) { if(!rtdbBase) return; rtdbBase.child('bodyData/hei
 function rtdbSetMeasurement(measId, entry) { if(!rtdbBase) return; rtdbBase.child('bodyData/measurements/'+measId+'/'+entry.ts).set(entry); }
 function rtdbRemoveMeasurement(measId, ts) { if(!rtdbBase) return; rtdbBase.child('bodyData/measurements/'+measId+'/'+ts).remove(); }
 function rtdbSetGoals(obj) { if(!rtdbBase) return; rtdbBase.child('goals').set(obj); }
+function rtdbSetBwExercises(obj) { if(!rtdbBase) return; rtdbBase.child('bwExercises').set(obj); }
 function rtdbSetExerciseTiming(obj) { if(!rtdbBase) return; rtdbBase.child('exerciseTiming').set(obj); }
 function rtdbSetTypeOverhead(obj) { if(!rtdbBase) return; rtdbBase.child('typeOverhead').set(obj); }
 
@@ -2422,7 +2463,10 @@ function buildDrumCol() {
   const col = document.getElementById('drum-col');
   const arr = drumTab==='weight' ? WEIGHTS : REPS;
   const val = drumTab==='weight' ? drumWeightVal : drumRepsVal;
-  col.innerHTML = arr.map(v=>`<div class="drum-item ${v===val?'selected':''}" data-val="${v}">${v}</div>`).join('');
+  col.innerHTML = arr.map(v=>{
+    const label = drumTab==='weight' && v===0 ? `<span style="font-size:15px;">Body weight</span>` : v;
+    return `<div class="drum-item ${v===val?'selected':''}" data-val="${v}">${label}</div>`;
+  }).join('');
   const idx = arr.indexOf(val);
   col.scrollTop = Math.max(0, idx * 44);
 }
@@ -2587,7 +2631,7 @@ function saveNewExercise() {
       library[esType].push(name);
       saveLibrary();
     }
-    esSession.exercises.push({ name, sets: [{weight:50, reps:10, done:true}] });
+    esSession.exercises.push({ name, sets: [{weight:isBodyweightEx(name)?0:50, reps:10, done:true}] });
     esAddExerciseMode = false;
     closeAddExercise();
     esRenderExerciseList();
@@ -3029,7 +3073,7 @@ function esToggleSet(ei, si) {
 }
 function esAddSet(ei) {
   const ex = esSession.exercises[ei];
-  const last = ex.sets[ex.sets.length-1] || {weight:50, reps:10};
+  const last = ex.sets[ex.sets.length-1] || {weight:isBodyweightEx(ex.name)?0:50, reps:10};
   ex.sets.push({ weight:last.weight, reps:last.reps, done:true });
   esRenderExerciseList();
 }
@@ -3299,7 +3343,12 @@ function deleteSession(k) {
 // Shared by the Trends "Best Lifts" list and the inline widget shown on each
 // exercise card during a workout. Returns the top weight lifted in each of
 // the last 10 FINISHED sessions that included this exercise, oldest first.
+// Bodyweight exercises (isBodyweightEx) always log 0 added weight, so they
+// track top reps per session instead — same shape, different metric.
 function exerciseHistory(name) {
+  return isBodyweightEx(name) ? exerciseHistoryReps(name) : exerciseHistoryWeight(name);
+}
+function exerciseHistoryWeight(name) {
   const hist = [];
   Object.values(sessions).forEach(s=>{
     if(!s.finishedAt) return;
@@ -3308,6 +3357,19 @@ function exerciseHistory(name) {
       const doneWeights = ex.sets.filter(st=>st.done&&st.weight>0).map(st=>st.weight);
       if(!doneWeights.length) return;
       hist.push({w:Math.max(...doneWeights), ts:s.finishedAt||s.startedAt||0});
+    });
+  });
+  return hist.sort((a,b)=>a.ts-b.ts).slice(-10).map(h=>h.w);
+}
+function exerciseHistoryReps(name) {
+  const hist = [];
+  Object.values(sessions).forEach(s=>{
+    if(!s.finishedAt) return;
+    flattenExercises(s.exercises).forEach(ex=>{
+      if(ex.name!==name) return;
+      const doneReps = ex.sets.filter(st=>st.done).map(st=>st.reps);
+      if(!doneReps.length) return;
+      hist.push({w:Math.max(...doneReps), ts:s.finishedAt||s.startedAt||0});
     });
   });
   return hist.sort((a,b)=>a.ts-b.ts).slice(-10).map(h=>h.w);
@@ -3366,6 +3428,19 @@ function bestEverWeight(name) {
     flattenExercises(s.exercises).forEach(ex=>{
       if(!name || ex.name.toLowerCase()!==name.toLowerCase()) return;
       ex.sets.forEach(st=>{ if(st.done && st.weight>best) best=st.weight; });
+    });
+  });
+  return best;
+}
+// Best single-set reps ever logged — the reps counterpart to bestEverWeight(),
+// used for goal rings on bodyweight exercises (isBodyweightEx).
+function bestEverReps(name) {
+  let best = 0;
+  Object.values(sessions).forEach(s=>{
+    if(!s.finishedAt) return;
+    flattenExercises(s.exercises).forEach(ex=>{
+      if(!name || ex.name.toLowerCase()!==name.toLowerCase()) return;
+      ex.sets.forEach(st=>{ if(st.done && st.reps>best) best=st.reps; });
     });
   });
   return best;
@@ -3516,7 +3591,8 @@ function renderGoals() {
   const row = document.getElementById('goals-row');
   if(!row) return;
   row.innerHTML = goals.map(g=>{
-    const best = g.exercise ? bestEverWeight(g.exercise) : 0;
+    const bw = isBodyweightEx(g.exercise);
+    const best = g.exercise ? (bw ? bestEverReps(g.exercise) : bestEverWeight(g.exercise)) : 0;
     const pct = g.target ? Math.min(100, Math.round(best/g.target*100)) : 0;
     const color = g.target && pct>=100 ? 'var(--accent)' : 'var(--blue)';
     const centerText = g.target ? pct+'%' : 'SET';
@@ -3525,7 +3601,7 @@ function renderGoals() {
         ${svgRing(pct, color, 68, 6)}
         <div class="ring-val" style="font-size:15px;">${centerText}</div>
       </div>
-      <div class="goal-name">${g.name}${g.target?` ${g.target}`:''}</div>
+      <div class="goal-name">${g.name}${g.target?` ${g.target}${bw?' reps':''}`:''}</div>
     </div>`;
   }).join('');
 }
@@ -3535,16 +3611,19 @@ function openGoalsEditor() { renderGoalsEditList(); showOverlay('goals-overlay')
 function closeGoalsEditor() { closeOverlay('goals-overlay'); renderGoals(); }
 function renderGoalsEditList() {
   const list = document.getElementById('goals-edit-list');
-  list.innerHTML = goals.map(g=>`
+  list.innerHTML = goals.map(g=>{
+    const unit = isBodyweightEx(g.exercise) ? 'reps' : 'lbs';
+    return `
     <div class="metric-row" style="align-items:flex-start;">
       <div style="flex:1;padding-right:10px;">
         <input class="sheet-input" style="margin:0 0 6px;font-size:13px;padding:8px 10px;width:100%;box-sizing:border-box;" value="${g.name}" placeholder="Goal name" data-goal="${g.id}" data-field="name">
         <input class="sheet-input" style="margin:0;font-size:12px;padding:7px 10px;width:100%;box-sizing:border-box;" value="${g.exercise||''}" placeholder="Tap to choose exercise" id="goal-ex-input-${g.id}" data-goal="${g.id}" data-field="exercise" data-suggest-for="goal-ex-suggest-${g.id}" autocomplete="off">
         <div class="ex-suggest-list" id="goal-ex-suggest-${g.id}" style="margin:4px 0 0;"></div>
       </div>
-      <input class="metric-input" style="width:78px;" type="number" value="${g.target||''}" placeholder="lbs" data-goal="${g.id}" data-field="target">
+      <input class="metric-input" style="width:78px;" type="number" value="${g.target||''}" placeholder="${unit}" data-goal="${g.id}" data-field="target">
       <button class="lib-del-btn" style="margin-left:8px;" data-goal-del="${g.id}">✕</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   list.querySelectorAll('input[data-goal]').forEach(inp=>{
     inp.addEventListener('input', () => updateGoalField(inp.dataset.goal, inp.dataset.field, inp.value));
   });
@@ -3565,18 +3644,21 @@ function renderGoalExerciseOptions(goalId, filter) {
   const q = (filter||'').trim().toLowerCase();
   const names = allSearchableExercises();
   const matches = (q ? names.filter(n=>n.toLowerCase().includes(q)) : names)
-    .map(n=>({ n, w: bestEverWeight(n) }))
+    .map(n=>{
+      const bw = isBodyweightEx(n);
+      const val = bw ? bestEverReps(n) : bestEverWeight(n);
+      return { n, tag: val ? val+(bw?' reps':' lbs') : '—' };
+    })
     .sort((a,b)=>a.n.localeCompare(b.n))
     .slice(0, 60);
   if(!matches.length){ boxEl.innerHTML = '<div class="ex-suggest-empty">No matches</div>'; return; }
   boxEl.innerHTML = matches.map(m=>
-    `<div class="ex-suggest-item" data-name="${m.n}"><div class="ex-suggest-name">${m.n}</div><div class="ex-suggest-tag" style="color:var(--text3);">${m.w?m.w+' lbs':'—'}</div></div>`
+    `<div class="ex-suggest-item" data-name="${m.n}"><div class="ex-suggest-name">${m.n}</div><div class="ex-suggest-tag" style="color:var(--text3);">${m.tag}</div></div>`
   ).join('');
   boxEl.querySelectorAll('.ex-suggest-item').forEach(el=>{
     el.addEventListener('click', () => {
       updateGoalField(goalId, 'exercise', el.dataset.name);
-      document.getElementById('goal-ex-input-'+goalId).value = el.dataset.name;
-      boxEl.innerHTML = '';
+      renderGoalsEditList(); // rebuild so the target unit (lbs/reps) reflects the newly picked exercise
     });
   });
 }
@@ -3686,6 +3768,7 @@ function exportData() {
     customMetrics: customMetrics,
     bodyData: bodyData,
     goals: goals,
+    bwExercises: bwExercises,
     exerciseTiming: exerciseTiming,
     typeOverhead: typeOverhead
   };
@@ -3739,6 +3822,10 @@ function importData(event) {
       if (Array.isArray(data.goals) && data.goals.length) {
         goals = data.goals;
         saveGoals();
+      }
+      if (Array.isArray(data.bwExercises) && data.bwExercises.length) {
+        bwExercises = data.bwExercises;
+        saveBwExercises();
       }
       if (data.exerciseTiming) {
         exerciseTiming = mergeAggregateStats(exerciseTiming, data.exerciseTiming);
@@ -3796,10 +3883,12 @@ function buildLibExRow(type, name, i, total, selMode) {
   const row = document.createElement('div');
   row.className = 'lib-ex-row' + (selMode ? ' selectable' : '');
   const checked = libSelected[type].has(i);
+  const bw = isBodyweightEx(name);
   row.innerHTML = `
     ${selMode ? `<div class="lib-check ${checked?'checked':''}" id="lib-chk-${type}-${i}"></div>` : ''}
     <div class="lib-ex-name">${name}</div>
     ${selMode ? '' : `
+      <button class="lib-bw-btn${bw?' active':''}" id="lib-bw-${type}-${i}" title="Bodyweight — track reps only, no added weight">BW</button>
       <button class="lib-move-btn" id="lib-edit-${type}-${i}" title="Rename">✎</button>
       <button class="lib-move-btn" id="lib-up-${type}-${i}" ${i===0?'disabled':''}>▲</button>
       <button class="lib-move-btn" id="lib-dn-${type}-${i}" ${i===total-1?'disabled':''}>▼</button>
@@ -3807,6 +3896,7 @@ function buildLibExRow(type, name, i, total, selMode) {
   if(selMode) {
     row.addEventListener('click', () => toggleLibSelect(type, i));
   } else {
+    row.querySelector('#lib-bw-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); toggleBodyweightEx(name); renderLibrary(); });
     row.querySelector('#lib-edit-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libRenameEx(type, i); });
     row.querySelector('#lib-up-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libMoveEx(type, i, -1); });
     row.querySelector('#lib-dn-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libMoveEx(type, i,  1); });
@@ -3969,6 +4059,8 @@ function renameExerciseEverywhere(oldName, newName) {
     }
   });
   if(changed){ saveLibrary(); syncToSheets(); }
+  const bwIdx = bwExercises.findIndex(n=>n.toLowerCase()===oldName.toLowerCase());
+  if(bwIdx>=0){ bwExercises[bwIdx] = newName; saveBwExercises(); }
   return changed;
 }
 
