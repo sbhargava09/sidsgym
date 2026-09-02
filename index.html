@@ -41,12 +41,8 @@ body{display:flex;flex-direction:column;}
 .page.active{display:block;}
 
 /* WORKOUT TYPE SELECTOR */
-.type-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;}
+.type-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:6px;margin-bottom:14px;}
 .type-btn{background:var(--surf);border:1px solid var(--border);border-radius:var(--rsm);padding:10px 4px;text-align:center;font-size:11px;font-weight:700;color:var(--text2);cursor:pointer;transition:all 0.15s;letter-spacing:0.02em;}
-.type-btn.active-upper{background:var(--blue-dim);border-color:var(--blue);color:var(--blue);}
-.type-btn.active-lower{background:var(--orange-dim);border-color:var(--orange);color:var(--orange);}
-.type-btn.active-full{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
-.type-btn.active-cardio{background:rgba(74,240,160,0.13);border-color:var(--green);color:var(--green);}
 
 /* CARDIO FORM */
 .cardio-form{display:flex;flex-direction:column;gap:10px;}
@@ -222,11 +218,10 @@ body{display:flex;flex-direction:column;}
 /* LIBRARY */
 .lib-ex-row{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--surf);border:1px solid var(--border);border-radius:var(--rsm);margin-bottom:6px;}
 .lib-ex-name{flex:1;font-size:13px;font-weight:600;color:var(--text);}
+.lib-ex-estimate{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);white-space:nowrap;flex-shrink:0;}
 .lib-move-btn{background:var(--surf2);border:none;border-radius:4px;color:var(--text3);font-size:12px;width:26px;height:26px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
 .lib-move-btn:active{background:var(--surf3);color:var(--text);}
 .lib-move-btn:disabled{opacity:0.2;pointer-events:none;}
-.lib-bw-btn{background:var(--surf2);border:none;border-radius:4px;color:var(--text3);font-size:10px;font-weight:700;font-family:'DM Mono',monospace;width:26px;height:26px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
-.lib-bw-btn.active{background:var(--accent-dim);color:var(--accent);}
 .lib-del-btn{background:var(--red-dim);border:none;border-radius:4px;color:var(--red);font-size:14px;width:26px;height:26px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;}
 /* MEASUREMENTS */
 .meas-diagram-wrap{position:relative;width:100%;max-width:340px;margin:0 auto 16px;}
@@ -428,12 +423,7 @@ body{display:flex;flex-direction:column;}
     <div class="home-wc-sub" id="home-wc-sub">Chest, Back, Shoulders</div>
     <div class="home-wc-meta" id="home-wc-meta">~35 min · 6 exercises</div>
 
-    <div class="type-bar" style="margin-top:14px;">
-      <div class="type-btn active-upper" onclick="setType('upper')" id="tb-upper">🏋️ UPPER</div>
-      <div class="type-btn" onclick="setType('lower')" id="tb-lower">🦵 LOWER</div>
-      <div class="type-btn" onclick="setType('full')" id="tb-full">🔥 FULL</div>
-      <div class="type-btn" onclick="setType('cardio')" id="tb-cardio">🏃 CARDIO</div>
-    </div>
+    <div class="type-bar" id="type-bar" style="margin-top:14px;"></div>
 
     <button class="start-btn" id="start-btn" style="margin:14px 0 0;" onclick="startWorkout()">START WORKOUT</button>
   </div>
@@ -674,69 +664,8 @@ body{display:flex;flex-direction:column;}
     Your active list loads into each workout. Search to add from the full exercise catalog, or type something new — either way it's added to this list. Changes take effect next time you start a workout.
   </div>
 
-  <div id="lib-upper-section" class="lib-section">
-    <div class="sec-label" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
-      <span style="color:var(--blue);">🏋️ UPPER BODY — ACTIVE LIST</span>
-      <span style="display:flex;gap:6px;">
-        <button class="lib-tool-btn" id="lib-selmode-upper" onclick="toggleLibSelectMode('upper')">⛓ Group</button>
-        <button class="lib-tool-btn" onclick="openSupersetBuilder('library','upper')">+ Superset</button>
-      </span>
-    </div>
-    <div class="sel-bar" id="lib-selbar-upper" style="display:none;">
-      <span id="lib-selcount-upper">0 selected</span>
-      <div class="sel-bar-btns">
-        <button class="go" onclick="groupLibSelected('upper')">Group</button>
-        <button class="cancel" onclick="toggleLibSelectMode('upper')">Cancel</button>
-      </div>
-    </div>
-    <div id="lib-upper-list"></div>
-    <input id="lib-add-input-upper" class="sheet-input" style="margin:8px 0 0;font-size:14px;padding:10px 12px;width:100%;box-sizing:border-box;" placeholder="Search, #chest, or add new..." type="text" autocomplete="off" oninput="renderLibAddSuggestions('upper',this.value)">
-    <div class="ex-suggest-list" id="lib-add-suggest-upper"></div>
-  </div>
-
-  <div style="height:1px;background:var(--border);margin:20px 0;"></div>
-
-  <div id="lib-lower-section" class="lib-section">
-    <div class="sec-label" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
-      <span style="color:var(--orange);">🦵 LOWER BODY — ACTIVE LIST</span>
-      <span style="display:flex;gap:6px;">
-        <button class="lib-tool-btn" id="lib-selmode-lower" onclick="toggleLibSelectMode('lower')">⛓ Group</button>
-        <button class="lib-tool-btn" onclick="openSupersetBuilder('library','lower')">+ Superset</button>
-      </span>
-    </div>
-    <div class="sel-bar" id="lib-selbar-lower" style="display:none;">
-      <span id="lib-selcount-lower">0 selected</span>
-      <div class="sel-bar-btns">
-        <button class="go" onclick="groupLibSelected('lower')">Group</button>
-        <button class="cancel" onclick="toggleLibSelectMode('lower')">Cancel</button>
-      </div>
-    </div>
-    <div id="lib-lower-list"></div>
-    <input id="lib-add-input-lower" class="sheet-input" style="margin:8px 0 0;font-size:14px;padding:10px 12px;width:100%;box-sizing:border-box;" placeholder="Search, #chest, or add new..." type="text" autocomplete="off" oninput="renderLibAddSuggestions('lower',this.value)">
-    <div class="ex-suggest-list" id="lib-add-suggest-lower"></div>
-  </div>
-
-  <div style="height:1px;background:var(--border);margin:20px 0;"></div>
-
-  <div id="lib-full-section" class="lib-section">
-    <div class="sec-label" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
-      <span style="color:var(--accent);">🔥 FULL BODY — ACTIVE LIST</span>
-      <span style="display:flex;gap:6px;">
-        <button class="lib-tool-btn" id="lib-selmode-full" onclick="toggleLibSelectMode('full')">⛓ Group</button>
-        <button class="lib-tool-btn" onclick="openSupersetBuilder('library','full')">+ Superset</button>
-      </span>
-    </div>
-    <div class="sel-bar" id="lib-selbar-full" style="display:none;">
-      <span id="lib-selcount-full">0 selected</span>
-      <div class="sel-bar-btns">
-        <button class="go" onclick="groupLibSelected('full')">Group</button>
-        <button class="cancel" onclick="toggleLibSelectMode('full')">Cancel</button>
-      </div>
-    </div>
-    <div id="lib-full-list"></div>
-    <input id="lib-add-input-full" class="sheet-input" style="margin:8px 0 0;font-size:14px;padding:10px 12px;width:100%;box-sizing:border-box;" placeholder="Search, #chest, or add new..." type="text" autocomplete="off" oninput="renderLibAddSuggestions('full',this.value)">
-    <div class="ex-suggest-list" id="lib-add-suggest-full"></div>
-  </div>
+  <div id="lib-sections"></div>
+  <button class="add-ex-btn" onclick="addWorkoutType()">+ Add Workout Type</button>
 </div>
 
 <!-- BODY / MEASUREMENTS -->
@@ -897,12 +826,7 @@ body{display:flex;flex-direction:column;}
       <div class="sheet-close" onclick="closeSessionEditor()">✕</div>
     </div>
     <div style="padding:0 20px 4px;">
-      <div class="type-bar" id="es-type-bar" style="margin-bottom:14px;display:none;">
-        <div class="type-btn" onclick="esSetType('upper')" id="es-tb-upper">🏋️ UPPER</div>
-        <div class="type-btn" onclick="esSetType('lower')" id="es-tb-lower">🦵 LOWER</div>
-        <div class="type-btn" onclick="esSetType('full')" id="es-tb-full">🔥 FULL</div>
-        <div class="type-btn" onclick="esSetType('cardio')" id="es-tb-cardio">🏃 CARDIO</div>
-      </div>
+      <div class="type-bar" id="es-type-bar" style="margin-bottom:14px;display:none;"></div>
 
       <div id="es-strength-view">
         <div id="es-ex-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
@@ -997,7 +921,6 @@ const DELETED_SESSIONS_KEY = 'sidsgym_deleted_sessions'; // tombstones — ids d
 const DATA_SCHEMA  = 5;
 const APP_VERSION  = 'v5.1';
 const GOALS_KEY    = 'sidsgym_goals';
-const BW_EX_KEY    = 'sidsgym_bw_exercises'; // exercise names logged as bodyweight-only (no added weight) — goals/trends track reps for these instead of weight
 const EXERCISE_TIMING_KEY = 'sidsgym_exercise_timing'; // { [exerciseName]: {totalMs, totalSets} } — learned pace per exercise
 const TYPE_OVERHEAD_KEY   = 'sidsgym_type_overhead';   // { upper|lower|full: {totalMs, count} } — learned warmup/cooldown/break time
 const DEFAULT_SEC_PER_SET = 90; // generic assumption for an untimed exercise: ~90s per working set including its rest
@@ -1160,8 +1083,30 @@ const DEFAULT_GOALS = [
   { id:'g-deadlift', name:'Deadlift',     exercise:'Deadlift',             target:null }
 ];
 let goals         = load(GOALS_KEY, DEFAULT_GOALS);
-const DEFAULT_BW_EXERCISES = ['Pull-Ups','Chin-Ups','Sit-Ups','Dips'];
-let bwExercises   = load(BW_EX_KEY, DEFAULT_BW_EXERCISES);
+// Workout types (Upper/Lower/Full/Cardio + any custom ones) — an ordered,
+// user-editable list. Default ids match the library/TEMPLATES/typeOverhead
+// keys already in use, so existing data needs no migration; this array is
+// purely order/label/icon/color/collapsed metadata layered on top of it.
+const WORKOUT_TYPES_KEY = 'sidsgym_workout_types';
+const DEFAULT_WORKOUT_TYPES = [
+  { id:'upper',  label:'Upper Body', icon:'🏋️', color:'var(--blue)',   dim:'var(--blue-dim)',       isCardio:false, collapsed:false },
+  { id:'lower',  label:'Lower Body', icon:'🦵', color:'var(--orange)', dim:'var(--orange-dim)',      isCardio:false, collapsed:false },
+  { id:'full',   label:'Full Body',  icon:'🔥', color:'var(--accent)', dim:'var(--accent-dim)',      isCardio:false, collapsed:false },
+  { id:'cardio', label:'Cardio',     icon:'🏃', color:'var(--green)',  dim:'rgba(74,240,160,0.13)',  isCardio:true,  collapsed:false }
+];
+let workoutTypes  = load(WORKOUT_TYPES_KEY, DEFAULT_WORKOUT_TYPES);
+// Auto-assigned colors for custom types added beyond the 4 defaults, cycling
+// in order (var(--red) first, then a few hues matching MUSCLE_GROUP_COLORS).
+const CUSTOM_TYPE_PALETTE = [
+  { color:'var(--red)', dim:'var(--red-dim)' },
+  { color:'#c17af0', dim:'rgba(193,122,240,0.13)' },
+  { color:'#e07ad6', dim:'rgba(224,122,214,0.13)' },
+  { color:'#7c8cf0', dim:'rgba(124,140,240,0.13)' },
+  { color:'#f0c14a', dim:'rgba(240,193,74,0.13)' }
+];
+// Exercises logged as bodyweight-only (no added weight) — goals/trends track
+// reps for these instead of weight. Not user-editable; edit this list directly.
+const BW_EXERCISES = ['Pull-Ups','Chin-Ups','Sit-Ups','Dips'];
 let exerciseTiming = load(EXERCISE_TIMING_KEY, {});
 let typeOverhead   = load(TYPE_OVERHEAD_KEY, {});
 let cloudLoaded   = false; // becomes true once we've recalled (or attempted) the cloud copy
@@ -1171,23 +1116,43 @@ let rtdbBase = null; // declared here (not down in the RTDB sync block) so early
 let _rtdbSessionSyncTimer = null;
 
 // TEMPLATES is built from the live library — always reflects latest user choices
-const TEMPLATES = {
-  upper: { label:'Upper Body', exercises: library.upper },
-  lower: { label:'Lower Body', exercises: library.lower },
-  full:  { label:'Full Body',  exercises: library.full  }
-};
+const TEMPLATES = {};
+function strengthWorkoutTypes() { return workoutTypes.filter(t=>!t.isCardio); }
+function getWorkoutType(id) { return workoutTypes.find(t=>t.id===id); }
+// Per-item type color (history cards, home-day-detail, workout card badge).
+// The two fixed 4-slot summary widgets (home hero's "this week" quadrant,
+// Log page's tally pills) intentionally keep their own hardcoded maps —
+// they're fixed-slot widgets, not per-item displays.
+function typeColor(id) { return getWorkoutType(id)?.color || 'var(--text)'; }
+// Keeps TEMPLATES in sync with library + workoutTypes — ensures every
+// non-cardio type has both a library[] array and a TEMPLATES entry, so
+// starting/switching to any type (including a brand new custom one) never
+// hits an undefined lookup.
+function rebuildTemplates() {
+  strengthWorkoutTypes().forEach(t => {
+    if(!library[t.id]) library[t.id] = [];
+    TEMPLATES[t.id] = { label: t.label, exercises: library[t.id] };
+  });
+}
+rebuildTemplates();
 
 function saveLibrary() {
   save(LIBRARY_KEY, library);
-  // Keep TEMPLATES in sync
-  TEMPLATES.upper.exercises = library.upper;
-  TEMPLATES.lower.exercises = library.lower;
-  TEMPLATES.full.exercises  = library.full;
+  rebuildTemplates();
   if(typeof cloudLoaded!=='undefined' && cloudLoaded) syncToSheets();
   rtdbSetLibrary(library);
 }
 
 function saveGoals() { save(GOALS_KEY, goals); if(cloudLoaded) syncToSheets(); rtdbSetGoals(goals); }
+function saveWorkoutTypes() { save(WORKOUT_TYPES_KEY, workoutTypes); if(cloudLoaded) syncToSheets(); rtdbSetWorkoutTypes(workoutTypes); }
+// Slugify a name into a unique, stable type id (letters/digits/dashes only),
+// deduping against existing ids so two same-named types don't collide.
+function uniqueTypeId(name) {
+  const base = name.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'type';
+  let id = base, n = 2;
+  while(workoutTypes.some(t=>t.id===id)) { id = base+'-'+n; n++; }
+  return id;
+}
 
 // Bodyweight exercises (pull-ups, sit-ups, dips, etc.) log 0 added weight —
 // goals/trends/history track reps for these instead of weight. Case-insensitive
@@ -1195,14 +1160,8 @@ function saveGoals() { save(GOALS_KEY, goals); if(cloudLoaded) syncToSheets(); r
 function isBodyweightEx(name) {
   if(!name) return false;
   const q = name.toLowerCase();
-  return bwExercises.some(n=>n.toLowerCase()===q);
+  return BW_EXERCISES.some(n=>n.toLowerCase()===q);
 }
-function toggleBodyweightEx(name) {
-  const i = bwExercises.findIndex(n=>n.toLowerCase()===name.toLowerCase());
-  if(i>=0) bwExercises.splice(i,1); else bwExercises.push(name);
-  saveBwExercises();
-}
-function saveBwExercises() { save(BW_EX_KEY, bwExercises); if(cloudLoaded) syncToSheets(); rtdbSetBwExercises(bwExercises); }
 function saveExerciseTiming() { save(EXERCISE_TIMING_KEY, exerciseTiming); if(cloudLoaded) syncToSheets(); rtdbSetExerciseTiming(exerciseTiming); }
 function saveTypeOverhead() { save(TYPE_OVERHEAD_KEY, typeOverhead); if(cloudLoaded) syncToSheets(); rtdbSetTypeOverhead(typeOverhead); }
 
@@ -1369,12 +1328,22 @@ function testSheetsConnection() {
 }
 
 // ── WORKOUT TYPE ─────────────────────────────────────────────────────────────
+// Shared button markup for both Today's quick-start bar (top 5 types) and the
+// Session Editor's "log previous workout" bar (every type) — active state is
+// styled inline since custom types have arbitrary colors, not a fixed CSS class.
+function typeBtnHTML(t, isActive) {
+  const activeStyle = isActive ? `background:${t.dim};border-color:${t.color};color:${t.color};` : '';
+  return `<div class="type-btn${isActive?' active':''}" style="${activeStyle}" data-id="${t.id}">${t.icon} ${t.label.toUpperCase()}</div>`;
+}
+function renderTypeBar() {
+  const bar = document.getElementById('type-bar');
+  if(!bar) return;
+  bar.innerHTML = workoutTypes.slice(0,5).map(t => typeBtnHTML(t, t.id===currentType)).join('');
+  bar.querySelectorAll('[data-id]').forEach(el => el.addEventListener('click', () => setType(el.dataset.id)));
+}
 function setType(t) {
   currentType = t;
-  ['upper','lower','full','cardio'].forEach(x => {
-    const btn = document.getElementById('tb-'+x);
-    btn.className = 'type-btn' + (x===t ? ' active-'+x : '');
-  });
+  renderTypeBar();
   updateHomeWorkoutCard();
   if(workoutStarted) rebuildSession();
 }
@@ -1867,6 +1836,21 @@ function estimateWorkoutMinutes(type) {
   return Math.max(1, Math.round(totalSec/60 + overheadMin));
 }
 
+// Per-exercise "N min / M sets" hint — shown in the Library list and in every
+// exercise search dropdown (Add Exercise, Library's add box, Superset
+// builder — they all share renderMatchRows below). Only shown once there's an
+// actual learned reference (exerciseTiming), same personally-timed data
+// estimateWorkoutMinutes() uses — a generic guess here would look like a real
+// number for an exercise never actually timed. Sets shown = last time it was
+// performed (getLastSets), same count estimateWorkoutMinutes() plans around.
+function exerciseEstimateLabel(name) {
+  const t = exerciseTiming[name];
+  if(!t || !t.totalSets) return '';
+  const sets = getLastSets(name).length || 3;
+  const mins = Math.max(1, Math.round((t.totalMs/t.totalSets)*sets/60000));
+  return `${mins} min / ${sets} set${sets===1?'':'s'}`;
+}
+
 function toggleSet(ei, si, subIdx) {
   const top = currentSession.exercises[ei];
   const s = subIdx==null ? top.sets[si] : top.exercises[subIdx].sets[si];
@@ -2016,7 +2000,7 @@ function setSheetsUrl(url){ localStorage.setItem('sidsgym_sheets_url', url.trim(
 // from its own stored state, instead of just seeing a smaller `sessions` and
 // merging the "missing" ones right back in from what it already has.
 function collectState() {
-  return { sessions, health: healthLog, library, customMetrics, bodyData, deletedSessionIds, goals, exerciseTiming, typeOverhead, bwExercises };
+  return { sessions, health: healthLog, library, customMetrics, bodyData, deletedSessionIds, goals, workoutTypes, exerciseTiming, typeOverhead };
 }
 
 // exerciseTiming/typeOverhead are cumulative aggregates (not append-only
@@ -2070,9 +2054,7 @@ function applyCloudState(state) {
     save(HEALTH_KEY, healthLog);
   }
   if(state.library) {
-    if(state.library.upper) library.upper = state.library.upper;
-    if(state.library.lower) library.lower = state.library.lower;
-    if(state.library.full)  library.full  = state.library.full;
+    Object.assign(library, state.library);
     saveLibrary();
   }
   if(state.customMetrics) {
@@ -2088,9 +2070,9 @@ function applyCloudState(state) {
     goals = state.goals;
     save(GOALS_KEY, goals);
   }
-  if(Array.isArray(state.bwExercises) && state.bwExercises.length) {
-    bwExercises = state.bwExercises;
-    save(BW_EX_KEY, bwExercises);
+  if(Array.isArray(state.workoutTypes) && state.workoutTypes.length) {
+    workoutTypes = state.workoutTypes;
+    save(WORKOUT_TYPES_KEY, workoutTypes);
   }
   if(state.exerciseTiming) {
     exerciseTiming = mergeAggregateStats(exerciseTiming, state.exerciseTiming);
@@ -2109,6 +2091,8 @@ function applyCloudState(state) {
   else if(id==='trends') renderTrends();
   else if(id==='health') renderHealth();
   else if(id==='body') renderBodyPage();
+  else if(id==='library') renderLibrary();
+  else if(id==='today'){ renderTypeBar(); updateHomeWorkoutCard(); }
 }
 
 // READ: recall the full dataset from Sheets on load (uses GET so no CORS issues).
@@ -2181,7 +2165,7 @@ function connectRTDB() {
 
 function disconnectRTDB() {
   if(rtdbBase) {
-    ['sessions','health','library','customMetrics/vars','customMetrics/logs','bodyData/height','bodyData/measurements','deletedSessionIds','goals','bwExercises','exerciseTiming','typeOverhead']
+    ['sessions','health','library','customMetrics/vars','customMetrics/logs','bodyData/height','bodyData/measurements','deletedSessionIds','goals','workoutTypes','exerciseTiming','typeOverhead']
       .forEach(p => rtdbBase.child(p).off());
   }
   rtdbBase = null;
@@ -2205,7 +2189,7 @@ function applyRTDBRoot(state) {
   if(state.bodyData && state.bodyData.measurements) applyRTDBMeasurements(state.bodyData.measurements);
   if(state.deletedSessionIds) applyRTDBTombstones(state.deletedSessionIds);
   if(state.goals) applyRTDBGoals(state.goals);
-  if(state.bwExercises) applyRTDBBwExercises(state.bwExercises);
+  if(state.workoutTypes) applyRTDBWorkoutTypes(state.workoutTypes);
   if(state.exerciseTiming) applyRTDBExerciseTiming(state.exerciseTiming);
   if(state.typeOverhead) applyRTDBTypeOverhead(state.typeOverhead);
 }
@@ -2222,7 +2206,7 @@ function attachRTDBListeners() {
   rtdbBase.child('bodyData/measurements').on('value', s => applyRTDBMeasurements(s.val()||{}));
   rtdbBase.child('deletedSessionIds').on('value', s => applyRTDBTombstones(s.val()||{}));
   rtdbBase.child('goals').on('value', s => { if(s.exists()) applyRTDBGoals(s.val()); });
-  rtdbBase.child('bwExercises').on('value', s => { if(s.exists()) applyRTDBBwExercises(s.val()); });
+  rtdbBase.child('workoutTypes').on('value', s => { if(s.exists()) applyRTDBWorkoutTypes(s.val()); });
   rtdbBase.child('exerciseTiming').on('value', s => { if(s.exists()) applyRTDBExerciseTiming(s.val()); });
   rtdbBase.child('typeOverhead').on('value', s => { if(s.exists()) applyRTDBTypeOverhead(s.val()); });
 }
@@ -2248,13 +2232,10 @@ function applyRTDBHealth(remote) {
 
 function applyRTDBLibrary(remote) {
   if(!remote) return;
-  if(remote.upper) library.upper = remote.upper;
-  if(remote.lower) library.lower = remote.lower;
-  if(remote.full)  library.full  = remote.full;
+  Object.assign(library, remote);
   save(LIBRARY_KEY, library);
-  TEMPLATES.upper.exercises = library.upper;
-  TEMPLATES.lower.exercises = library.lower;
-  TEMPLATES.full.exercises  = library.full;
+  rebuildTemplates();
+  refreshActivePage();
 }
 
 function applyRTDBCMVars(remote) {
@@ -2296,10 +2277,11 @@ function applyRTDBGoals(remote) {
   save(GOALS_KEY, goals);
   refreshActivePage();
 }
-function applyRTDBBwExercises(remote) {
+function applyRTDBWorkoutTypes(remote) {
   if(!Array.isArray(remote) || !remote.length) return;
-  bwExercises = remote;
-  save(BW_EX_KEY, bwExercises);
+  workoutTypes = remote;
+  save(WORKOUT_TYPES_KEY, workoutTypes);
+  rebuildTemplates();
   refreshActivePage();
 }
 function applyRTDBExerciseTiming(remote) {
@@ -2350,7 +2332,7 @@ function rtdbSetHeight(obj) { if(!rtdbBase) return; rtdbBase.child('bodyData/hei
 function rtdbSetMeasurement(measId, entry) { if(!rtdbBase) return; rtdbBase.child('bodyData/measurements/'+measId+'/'+entry.ts).set(entry); }
 function rtdbRemoveMeasurement(measId, ts) { if(!rtdbBase) return; rtdbBase.child('bodyData/measurements/'+measId+'/'+ts).remove(); }
 function rtdbSetGoals(obj) { if(!rtdbBase) return; rtdbBase.child('goals').set(obj); }
-function rtdbSetBwExercises(obj) { if(!rtdbBase) return; rtdbBase.child('bwExercises').set(obj); }
+function rtdbSetWorkoutTypes(obj) { if(!rtdbBase) return; rtdbBase.child('workoutTypes').set(obj); }
 function rtdbSetExerciseTiming(obj) { if(!rtdbBase) return; rtdbBase.child('exerciseTiming').set(obj); }
 function rtdbSetTypeOverhead(obj) { if(!rtdbBase) return; rtdbBase.child('typeOverhead').set(obj); }
 
@@ -2509,7 +2491,7 @@ function closeAddExercise() { closeOverlay('add-ex-overlay'); document.getElemen
 // aren't limited to the current day's type, so e.g. a lower-body exercise
 // can still be picked on a full-body day.
 function allSearchableExercises() {
-  const libNames = [...library.upper, ...library.lower, ...library.full].flatMap(libItemNames);
+  const libNames = strengthWorkoutTypes().flatMap(t => library[t.id]).flatMap(libItemNames);
   return [...new Set([...EXERCISE_BANK.map(e=>e.name), ...libNames])];
 }
 
@@ -2518,8 +2500,10 @@ function allSearchableExercises() {
 function renderMatchRows(boxEl, names, onSelect) {
   boxEl.innerHTML = names.map(n=>{
     const group = EXERCISE_GROUP_LOOKUP[n];
-    const tag = group ? `<div class="ex-suggest-tag" style="color:${MUSCLE_GROUP_COLORS[group]}">${group.toUpperCase()}</div>` : '';
-    return `<div class="ex-suggest-item"><div class="ex-suggest-name">${n}</div>${tag}</div>`;
+    const groupTag = group ? `<div class="ex-suggest-tag" style="color:${MUSCLE_GROUP_COLORS[group]}">${group.toUpperCase()}</div>` : '';
+    const estimate = exerciseEstimateLabel(n);
+    const estTag = estimate ? `<div class="ex-suggest-tag" style="color:var(--text3);">${estimate}</div>` : '';
+    return `<div class="ex-suggest-item"><div class="ex-suggest-name">${n}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">${groupTag}${estTag}</div></div>`;
   }).join('');
   boxEl.querySelectorAll('.ex-suggest-item').forEach((el,i)=>{
     el.addEventListener('click', ()=>onSelect(names[i]));
@@ -2579,14 +2563,16 @@ function renderExerciseSearchResults(query, boxEl, inputEl, onSelect, allowAddNe
 // Every exercise-search input/dropdown pair on the page. A click anywhere
 // outside a pair's input AND its own dropdown dismisses that dropdown —
 // otherwise it just sits there open after you delete your text or decide
-// not to add anything and tap elsewhere.
-const EX_SEARCH_PAIRS = [
-  ['ex-name-input','ex-suggest-list'],
-  ['lib-add-input-upper','lib-add-suggest-upper'],
-  ['lib-add-input-lower','lib-add-suggest-lower'],
-  ['lib-add-input-full','lib-add-suggest-full'],
-  ['ss-search-input','ss-suggest-list']
-];
+// not to add anything and tap elsewhere. The Library "add exercise" pair
+// exists once per strength workout type, so it's computed fresh on every
+// click rather than listed statically (types can be added/reordered).
+function getExSearchPairs() {
+  return [
+    ['ex-name-input','ex-suggest-list'],
+    ['ss-search-input','ss-suggest-list'],
+    ...strengthWorkoutTypes().map(t => ['lib-add-input-'+t.id, 'lib-add-suggest-'+t.id])
+  ];
+}
 document.addEventListener('click', e => {
   // composedPath() captures the original target chain at dispatch time —
   // selecting a suggestion re-renders (or empties) the dropdown as part of
@@ -2594,7 +2580,7 @@ document.addEventListener('click', e => {
   // listener runs; a plain .contains(e.target) check would then wrongly see
   // that as "outside" and immediately erase the fresh results.
   const path = e.composedPath();
-  EX_SEARCH_PAIRS.forEach(([inputId,boxId]) => {
+  getExSearchPairs().forEach(([inputId,boxId]) => {
     const inputEl = document.getElementById(inputId);
     const boxEl = document.getElementById(boxId);
     if(!inputEl || !boxEl) return;
@@ -2785,6 +2771,7 @@ function renderHomeHero() {
 
   renderHomeDaysStrip();
   renderHomeDayDetail();
+  renderTypeBar();
   updateHomeWorkoutCard();
 }
 
@@ -2856,7 +2843,6 @@ function renderHomeDayDetail() {
     if(logBtn) logBtn.addEventListener('click', () => openLogPreviousWorkout(homeExpandedDate));
     return;
   }
-  const colors = {upper:'var(--blue)',lower:'var(--orange)',full:'var(--accent)'};
   const editBtnHtml = id => `<button class="lib-tool-btn" data-edit-id="${id}" style="flex-shrink:0;">Edit</button>`;
   el.innerHTML = daySessions.map(([id,s])=>{
     const dur = s.duration ? Math.round(s.duration/60) : null;
@@ -2899,7 +2885,7 @@ function renderHomeDayDetail() {
     const vol = flatEx.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0);
     const sets = flatEx.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).length,0);
     const exCount = flatEx.filter(ex=>ex.sets.some(st=>st.done)).length;
-    const typeColor = colors[s.type]||'var(--text)';
+    const cardColor = typeColor(s.type);
     const detailRows = flatEx.map(ex=>{
       const doneSets = ex.sets.filter(st=>st.done);
       if(!doneSets.length) return '';
@@ -2910,7 +2896,7 @@ function renderHomeDayDetail() {
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div>
           <div class="hist-date">${dateLabel}</div>
-          <div class="hist-type" style="color:${typeColor}">${TEMPLATES[s.type]?.label||s.type}</div>
+          <div class="hist-type" style="color:${cardColor}">${TEMPLATES[s.type]?.label||s.type}</div>
         </div>
         ${editBtnHtml(id)}
       </div>
@@ -2983,6 +2969,7 @@ function openLogPreviousWorkout(dateStr) {
   document.getElementById('es-title').textContent = 'Log Previous Workout';
   document.getElementById('es-subtitle').textContent = new Date(dateStr+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
   document.getElementById('es-type-bar').style.display = 'grid';
+  renderEsTypeBar();
   esSetType('upper');
   showOverlay('edit-session-overlay');
 }
@@ -2992,14 +2979,19 @@ function closeSessionEditor() {
   esSessionId = null; esSession = null; esIsNew = false;
 }
 
+// Unlike Today's type-bar (top 5 only), retroactively logging a workout can
+// use ANY workout type, so this renders the full list.
+function renderEsTypeBar() {
+  const bar = document.getElementById('es-type-bar');
+  if(!bar) return;
+  bar.innerHTML = workoutTypes.map(t => typeBtnHTML(t, esSession && t.id===esSession.type)).join('');
+  bar.querySelectorAll('[data-id]').forEach(el => el.addEventListener('click', () => esSetType(el.dataset.id)));
+}
 function esSetType(t) {
   if(!esSession) return;
   esSession.type = t;
-  ['upper','lower','full','cardio'].forEach(x=>{
-    const btn = document.getElementById('es-tb-'+x);
-    if(btn) btn.className = 'type-btn' + (x===t ? ' active-'+x : '');
-  });
-  const isCardio = t === 'cardio';
+  renderEsTypeBar();
+  const isCardio = !!getWorkoutType(t)?.isCardio;
   document.getElementById('es-strength-view').style.display = isCardio ? 'none' : 'block';
   document.getElementById('es-cardio-view').style.display = isCardio ? 'block' : 'none';
   if(!isCardio){
@@ -3130,13 +3122,13 @@ function saveSessionEditor() {
 function updateHomeWorkoutCard() {
   const badgeEl = document.getElementById('home-wc-badge');
   if(!badgeEl) return;
-  const colors = {upper:'var(--blue)',lower:'var(--orange)',full:'var(--accent)',cardio:'var(--green)'};
-  const emojis = {upper:'🏋️',lower:'🦵',full:'🔥',cardio:'🏃'};
-  badgeEl.style.color = colors[currentType];
-  badgeEl.textContent = currentType==='cardio' ? 'CARDIO' : 'STRENGTH · ' + currentType.toUpperCase();
-  document.getElementById('home-wc-title').textContent = `${emojis[currentType]} ${TEMPLATES[currentType]?.label || 'Cardio'}`;
+  const t = getWorkoutType(currentType);
+  if(!t) return;
+  badgeEl.style.color = t.color;
+  badgeEl.textContent = t.isCardio ? 'CARDIO' : 'STRENGTH · ' + t.label.toUpperCase();
+  document.getElementById('home-wc-title').textContent = `${t.icon} ${t.label}`;
 
-  if(currentType === 'cardio') {
+  if(t.isCardio) {
     document.getElementById('home-wc-sub').textContent = 'Run, bike, swim, row, or elliptical';
     document.getElementById('home-wc-meta').textContent = 'Track distance, HR & pace';
     return;
@@ -3261,8 +3253,7 @@ function renderHistory() {
     const vol=flatEx.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).reduce((b,st)=>b+(st.weight*st.reps),0),0);
     const sets=flatEx.reduce((a,ex)=>a+ex.sets.filter(st=>st.done).length,0);
     const exCount=flatEx.filter(ex=>ex.sets.some(st=>st.done)).length;
-    const colors={upper:'var(--blue)',lower:'var(--orange)',full:'var(--accent)'};
-    const typeColor=colors[s.type]||'var(--text)';
+    const cardColor=typeColor(s.type);
     const detailRows=flatEx.map(ex=>{
       const doneSets=ex.sets.filter(st=>st.done);
       if(!doneSets.length) return '';
@@ -3275,7 +3266,7 @@ function renderHistory() {
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div${detailRows?` style="cursor:pointer;" onclick="toggleHistoryDetail('${k}')"`:''}>
           <div class="hist-date">${displayDate}</div>
-          <div class="hist-type" style="color:${typeColor}">${TEMPLATES[s.type]?.label||s.type}</div>
+          <div class="hist-type" style="color:${cardColor}">${TEMPLATES[s.type]?.label||s.type}</div>
         </div>
         <div style="display:flex;align-items:center;gap:2px;">
           ${chevronHtml}
@@ -3768,7 +3759,7 @@ function exportData() {
     customMetrics: customMetrics,
     bodyData: bodyData,
     goals: goals,
-    bwExercises: bwExercises,
+    workoutTypes: workoutTypes,
     exerciseTiming: exerciseTiming,
     typeOverhead: typeOverhead
   };
@@ -3804,9 +3795,7 @@ function importData(event) {
       });
       // Restore library if present
       if (data.library) {
-        if (data.library.upper) library.upper = data.library.upper;
-        if (data.library.lower) library.lower = data.library.lower;
-        if (data.library.full)  library.full  = data.library.full;
+        Object.assign(library, data.library);
         saveLibrary();
       }
       // Restore custom metrics if present
@@ -3823,9 +3812,9 @@ function importData(event) {
         goals = data.goals;
         saveGoals();
       }
-      if (Array.isArray(data.bwExercises) && data.bwExercises.length) {
-        bwExercises = data.bwExercises;
-        saveBwExercises();
+      if (Array.isArray(data.workoutTypes) && data.workoutTypes.length) {
+        workoutTypes = data.workoutTypes;
+        saveWorkoutTypes();
       }
       if (data.exerciseTiming) {
         exerciseTiming = mergeAggregateStats(exerciseTiming, data.exerciseTiming);
@@ -3859,14 +3848,121 @@ function showImportStatus(msg, isError=false) {
 // ── LIBRARY ───────────────────────────────────────────────────────────────────
 // Library "⛓ Group" select mode — per section, lets you pick 2+ standalone
 // exercises and merge them into a superset in place.
-let libSelectMode = { upper:false, lower:false, full:false };
-let libSelected = { upper:new Set(), lower:new Set(), full:new Set() };
+let libSelectMode = {};
+let libSelected = {};
+strengthWorkoutTypes().forEach(t => { libSelected[t.id] = new Set(); });
+
+// Builds one workout type's full Library section: header (icon/label, collapse
+// chevron, move buttons, Group/Superset tools), sel-bar, exercise list, and
+// add-exercise search box. Cardio (or any isCardio type) has no exercise list
+// to manage, so it renders as a slim header-only row instead — see
+// buildCardioTypeRow below.
+function buildLibTypeSection(t, i, total) {
+  const section = document.createElement('div');
+  section.className = 'lib-section';
+  const bodyId = 'lib-body-'+t.id;
+  section.innerHTML = `
+    <div class="sec-label" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="display:flex;align-items:center;gap:6px;color:${t.color};cursor:pointer;" id="lib-chevwrap-${t.id}">
+        <div class="ex-chevron${t.collapsed?'':' open'}" id="lib-chev-${t.id}">›</div>
+        ${t.icon} ${t.label.toUpperCase()} — ACTIVE LIST
+      </span>
+      <span style="display:flex;gap:6px;">
+        <button class="lib-move-btn" id="lib-typeup-${t.id}" title="Move up" ${i===0?'disabled':''}>▲</button>
+        <button class="lib-move-btn" id="lib-typedn-${t.id}" title="Move down" ${i===total-1?'disabled':''}>▼</button>
+        <button class="lib-tool-btn" id="lib-selmode-${t.id}" onclick="toggleLibSelectMode('${t.id}')">⛓ Group</button>
+        <button class="lib-tool-btn" onclick="openSupersetBuilder('library','${t.id}')">+ Superset</button>
+      </span>
+    </div>
+    <div class="ex-body${t.collapsed?'':' open'}" id="${bodyId}">
+      <div class="sel-bar" id="lib-selbar-${t.id}" style="display:none;">
+        <span id="lib-selcount-${t.id}">0 selected</span>
+        <div class="sel-bar-btns">
+          <button class="go" onclick="groupLibSelected('${t.id}')">Group</button>
+          <button class="cancel" onclick="toggleLibSelectMode('${t.id}')">Cancel</button>
+        </div>
+      </div>
+      <div id="lib-${t.id}-list"></div>
+      <input id="lib-add-input-${t.id}" class="sheet-input" style="margin:8px 0 0;font-size:14px;padding:10px 12px;width:100%;box-sizing:border-box;" placeholder="Search, #chest, or add new..." type="text" autocomplete="off">
+      <div class="ex-suggest-list" id="lib-add-suggest-${t.id}"></div>
+    </div>`;
+  section.querySelector('#lib-chevwrap-'+t.id).addEventListener('click', () => toggleLibSectionCollapse(t.id));
+  section.querySelector('#lib-typeup-'+t.id).addEventListener('click', e => { e.stopPropagation(); moveWorkoutType(t.id, -1); });
+  section.querySelector('#lib-typedn-'+t.id).addEventListener('click', e => { e.stopPropagation(); moveWorkoutType(t.id, 1); });
+  section.querySelector('#lib-add-input-'+t.id).addEventListener('input', e => renderLibAddSuggestions(t.id, e.target.value));
+  return section;
+}
+
+// Cardio (and any future isCardio type) has no exercise list to manage, so it
+// only gets a slim row in the shared order — name + move buttons.
+function buildCardioTypeRow(t, i, total) {
+  const row = document.createElement('div');
+  row.className = 'lib-ex-row';
+  row.innerHTML = `
+    <div class="lib-ex-name" style="color:${t.color};">${t.icon} ${t.label.toUpperCase()}</div>
+    <button class="lib-move-btn" id="lib-typeup-${t.id}" title="Move up" ${i===0?'disabled':''}>▲</button>
+    <button class="lib-move-btn" id="lib-typedn-${t.id}" title="Move down" ${i===total-1?'disabled':''}>▼</button>`;
+  row.querySelector('#lib-typeup-'+t.id).addEventListener('click', () => moveWorkoutType(t.id, -1));
+  row.querySelector('#lib-typedn-'+t.id).addEventListener('click', () => moveWorkoutType(t.id, 1));
+  return row;
+}
+
+function toggleLibSectionCollapse(id) {
+  const t = getWorkoutType(id);
+  if(!t) return;
+  t.collapsed = !t.collapsed;
+  saveWorkoutTypes();
+  document.getElementById('lib-body-'+id)?.classList.toggle('open', !t.collapsed);
+  document.getElementById('lib-chev-'+id)?.classList.toggle('open', !t.collapsed);
+}
+
+function moveWorkoutType(id, dir) {
+  const i = workoutTypes.findIndex(t=>t.id===id);
+  const ni = i + dir;
+  if(i<0 || ni<0 || ni>=workoutTypes.length) return;
+  [workoutTypes[i], workoutTypes[ni]] = [workoutTypes[ni], workoutTypes[i]];
+  saveWorkoutTypes();
+  renderLibrary();
+  renderTypeBar();
+}
+
+function addWorkoutType() {
+  const raw = prompt('Name your new workout type (e.g. "Push Day")');
+  if(!raw) return;
+  const name = raw.trim();
+  if(!name) return;
+  const id = uniqueTypeId(name);
+  const customCount = workoutTypes.filter(t=>!DEFAULT_WORKOUT_TYPES.some(d=>d.id===t.id)).length;
+  const swatch = CUSTOM_TYPE_PALETTE[customCount % CUSTOM_TYPE_PALETTE.length];
+  workoutTypes.push({ id, label:name, icon:'💪', color:swatch.color, dim:swatch.dim, isCardio:false, collapsed:false });
+  library[id] = [];
+  libSelected[id] = new Set();
+  saveWorkoutTypes();
+  saveLibrary(); // rebuilds TEMPLATES, so the new type is immediately usable
+  renderLibrary();
+  renderTypeBar();
+  showToast('Added "'+name+'" as a new workout type');
+}
 
 function renderLibrary() {
-  ['upper','lower','full'].forEach(type => {
+  const container = document.getElementById('lib-sections');
+  if(!container) return;
+  container.innerHTML = '';
+  workoutTypes.forEach((t, i) => {
+    container.appendChild(t.isCardio
+      ? buildCardioTypeRow(t, i, workoutTypes.length)
+      : buildLibTypeSection(t, i, workoutTypes.length));
+    if(i < workoutTypes.length-1) {
+      const divider = document.createElement('div');
+      divider.style.cssText = 'height:1px;background:var(--border);margin:20px 0;';
+      container.appendChild(divider);
+    }
+  });
+  strengthWorkoutTypes().forEach(t => {
+    const type = t.id;
     const container = document.getElementById('lib-'+type+'-list');
     const items = library[type];
-    const selMode = libSelectMode[type];
+    const selMode = !!libSelectMode[type];
     document.getElementById('lib-selbar-'+type).style.display = selMode ? 'flex' : 'none';
     document.getElementById('lib-selcount-'+type).textContent = libSelected[type].size + ' selected';
     document.getElementById('lib-selmode-'+type).classList.toggle('active', selMode);
@@ -3883,12 +3979,12 @@ function buildLibExRow(type, name, i, total, selMode) {
   const row = document.createElement('div');
   row.className = 'lib-ex-row' + (selMode ? ' selectable' : '');
   const checked = libSelected[type].has(i);
-  const bw = isBodyweightEx(name);
+  const estimate = exerciseEstimateLabel(name);
   row.innerHTML = `
     ${selMode ? `<div class="lib-check ${checked?'checked':''}" id="lib-chk-${type}-${i}"></div>` : ''}
     <div class="lib-ex-name">${name}</div>
+    ${estimate ? `<div class="lib-ex-estimate">${estimate}</div>` : ''}
     ${selMode ? '' : `
-      <button class="lib-bw-btn${bw?' active':''}" id="lib-bw-${type}-${i}" title="Bodyweight — track reps only, no added weight">BW</button>
       <button class="lib-move-btn" id="lib-edit-${type}-${i}" title="Rename">✎</button>
       <button class="lib-move-btn" id="lib-up-${type}-${i}" ${i===0?'disabled':''}>▲</button>
       <button class="lib-move-btn" id="lib-dn-${type}-${i}" ${i===total-1?'disabled':''}>▼</button>
@@ -3896,7 +3992,6 @@ function buildLibExRow(type, name, i, total, selMode) {
   if(selMode) {
     row.addEventListener('click', () => toggleLibSelect(type, i));
   } else {
-    row.querySelector('#lib-bw-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); toggleBodyweightEx(name); renderLibrary(); });
     row.querySelector('#lib-edit-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libRenameEx(type, i); });
     row.querySelector('#lib-up-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libMoveEx(type, i, -1); });
     row.querySelector('#lib-dn-'+type+'-'+i).addEventListener('click', e => { e.stopPropagation(); libMoveEx(type, i,  1); });
@@ -4039,7 +4134,8 @@ function renameExerciseEverywhere(oldName, newName) {
     if(ex.name===oldName){ ex.name=newName; changed=true; }
   }));
   if(changed) save(SESSIONS_KEY, sessions);
-  ['upper','lower','full'].forEach(type=>{
+  strengthWorkoutTypes().forEach(t=>{
+    const type = t.id;
     const list = library[type]||[];
     for(let i=list.length-1;i>=0;i--){
       const item = list[i];
@@ -4059,8 +4155,6 @@ function renameExerciseEverywhere(oldName, newName) {
     }
   });
   if(changed){ saveLibrary(); syncToSheets(); }
-  const bwIdx = bwExercises.findIndex(n=>n.toLowerCase()===oldName.toLowerCase());
-  if(bwIdx>=0){ bwExercises[bwIdx] = newName; saveBwExercises(); }
   return changed;
 }
 
