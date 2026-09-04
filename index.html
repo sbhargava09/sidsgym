@@ -277,9 +277,12 @@ body{display:flex;flex-direction:column;}
 .lib-check.checked::after{content:'✓';font-size:12px;color:#000;font-weight:800;}
 .lib-ex-row.selectable{cursor:pointer;}
 .ss-card{background:var(--surf);border:1px solid var(--blue);border-radius:var(--r);padding:10px 12px 12px;margin-bottom:8px;}
-.ss-badge-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.ss-badge-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;}
+.ss-badge-row.collapsed{margin-bottom:0;}
 .ss-badge{font-size:9px;font-family:'DM Mono',monospace;color:var(--blue);letter-spacing:0.08em;font-weight:700;background:var(--blue-dim);padding:4px 8px;border-radius:20px;}
-.ss-badge-actions{display:flex;gap:4px;margin-left:auto;}
+.ss-badge-actions{display:flex;align-items:center;gap:4px;margin-left:auto;}
+.ss-body{display:none;}
+.ss-body.open{display:block;}
 .ss-member-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
 .ss-member-row:last-child{border-bottom:none;}
 .ss-sub-block{padding:10px 0;border-bottom:1px solid var(--border);}
@@ -919,7 +922,7 @@ const METRICS_KEY  = 'sidsgym_custom_metrics';
 const BODY_KEY     = 'sidsgym_body'; // { height:{ft,in}, measurements:{key:[{val,date,ts}]} }
 const DELETED_SESSIONS_KEY = 'sidsgym_deleted_sessions'; // tombstones — ids deleted locally, so a merge-pull can't resurrect them
 const DATA_SCHEMA  = 5;
-const APP_VERSION  = 'v5.1';
+const APP_VERSION  = 'v5.2';
 const GOALS_KEY    = 'sidsgym_goals';
 const EXERCISE_TIMING_KEY = 'sidsgym_exercise_timing'; // { [exerciseName]: {totalMs, totalSets} } — learned pace per exercise
 const TYPE_OVERHEAD_KEY   = 'sidsgym_type_overhead';   // { upper|lower|full: {totalMs, count} } — learned warmup/cooldown/break time
@@ -1589,6 +1592,10 @@ function wireSetRows(card, ei, subIdx, sets) {
   card.querySelector('#addset-'+suf).addEventListener('click', () => addSet(ei, subIdx));
 }
 
+// Identifies a superset group across re-renders (its index can shift when
+// exercises are reordered), so its collapsed/expanded state can survive.
+function supersetKey(ex) { return ex.exercises.map(e=>e.name).join('|'); }
+
 function renderExercises() {
   const list = document.getElementById('ex-list');
   const total = currentSession.exercises.length;
@@ -1602,10 +1609,17 @@ function renderExercises() {
     const ex = currentSession.exercises[idx];
     if(ex && ex.name) openNames.add(ex.name);
   });
+  // Supersets default open; remember which ones were explicitly collapsed.
+  const closedSupersets = new Set();
+  document.querySelectorAll('.ss-body:not(.open)').forEach(el => {
+    const idx = parseInt(el.id.replace('ss-body-',''));
+    const ex = currentSession.exercises[idx];
+    if(isSessionSuperset(ex)) closedSupersets.add(supersetKey(ex));
+  });
   list.innerHTML = '';
   currentSession.exercises.forEach((ex, ei) => {
     const card = isSessionSuperset(ex)
-      ? buildSupersetCard(ex, ei, total)
+      ? buildSupersetCard(ex, ei, total, closedSupersets.has(supersetKey(ex)))
       : buildExerciseCard(ex, ei, total);
     list.appendChild(card);
   });
@@ -1668,47 +1682,60 @@ function buildExerciseCard(ex, ei, total) {
   return card;
 }
 
-function buildSupersetCard(ex, ei, total) {
+function buildSupersetCard(ex, ei, total, collapsed) {
   const card = document.createElement('div');
   card.className = 'ex-card ss-card';
   card.dataset.ei = ei;
   const memberNames = ex.exercises.map(e=>e.name).join('  +  ');
   card.innerHTML = `
-    <div class="ss-badge-row">
+    <div class="ss-badge-row${collapsed?' collapsed':''}" id="ss-hdr-${ei}">
       <span class="ss-badge">⛓ SUPERSET</span>
-      <span style="font-size:11px;color:var(--text3);">${memberNames}</span>
+      <span style="font-size:11px;color:var(--text3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${memberNames}</span>
       <span class="ss-badge-actions">
         <button class="move-btn" id="mv-up-${ei}" ${ei===0?'disabled':''}>▲</button>
         <button class="move-btn" id="mv-dn-${ei}" ${ei===total-1?'disabled':''}>▼</button>
         <button class="lib-del-btn" id="ss-ungroup-${ei}" title="Ungroup">✂</button>
+        <div class="ex-chevron${collapsed?'':' open'}" id="ss-chev-${ei}">›</div>
       </span>
     </div>
-    ${ex.exercises.map((sub,subIdx)=>{
-      const doneSets = sub.sets.filter(s=>s.done).length;
-      return `<div class="ss-sub-block">
-        <div class="ss-sub-header">
-          <div>
-            <div class="ex-name" style="font-size:13px;">${sub.name}</div>
-            <div class="ex-meta">${doneSets}/${sub.sets.length} sets · ${sub.sets.reduce((a,s)=>a+(s.done?s.weight*s.reps:0),0).toLocaleString()} lbs</div>
+    <div class="ss-body${collapsed?'':' open'}" id="ss-body-${ei}">
+      ${ex.exercises.map((sub,subIdx)=>{
+        const doneSets = sub.sets.filter(s=>s.done).length;
+        return `<div class="ss-sub-block">
+          <div class="ss-sub-header">
+            <div>
+              <div class="ex-name" style="font-size:13px;">${sub.name}</div>
+              <div class="ex-meta">${doneSets}/${sub.sets.length} sets · ${sub.sets.reduce((a,s)=>a+(s.done?s.weight*s.reps:0),0).toLocaleString()} lbs</div>
+            </div>
+            <button class="del-set-btn" id="ss-rm-${ei}-${subIdx}" title="Remove from group">✕</button>
           </div>
-          <button class="del-set-btn" id="ss-rm-${ei}-${subIdx}" title="Remove from group">✕</button>
-        </div>
-        ${setsHeaderHTML()}
-        ${setRowsHTML(ei, subIdx, sub.sets)}
-        <button class="add-set-btn" id="addset-${ei}-${subIdx}">+ Add Set</button>
-      </div>`;
-    }).join('')}
-    <button class="add-ex-btn" style="margin-top:10px;" id="ss-addex-${ei}">+ Add Exercise to Group</button>`;
+          ${setsHeaderHTML()}
+          ${setRowsHTML(ei, subIdx, sub.sets)}
+          <button class="add-set-btn" id="addset-${ei}-${subIdx}">+ Add Set</button>
+        </div>`;
+      }).join('')}
+      <button class="add-ex-btn" style="margin-top:10px;" id="ss-addex-${ei}">+ Add Exercise to Group</button>
+    </div>`;
 
-  card.querySelector('#mv-up-'+ei).addEventListener('click', () => moveEx(ei, -1));
-  card.querySelector('#mv-dn-'+ei).addEventListener('click', () => moveEx(ei, 1));
-  card.querySelector('#ss-ungroup-'+ei).addEventListener('click', () => ungroupToday(ei));
+  card.querySelector('#ss-hdr-'+ei).addEventListener('click', () => toggleSuperset(ei));
+  card.querySelector('#mv-up-'+ei).addEventListener('click', e => { e.stopPropagation(); moveEx(ei, -1); });
+  card.querySelector('#mv-dn-'+ei).addEventListener('click', e => { e.stopPropagation(); moveEx(ei, 1); });
+  card.querySelector('#ss-ungroup-'+ei).addEventListener('click', e => { e.stopPropagation(); ungroupToday(ei); });
   ex.exercises.forEach((sub, subIdx) => {
     wireSetRows(card, ei, subIdx, sub.sets);
-    card.querySelector('#ss-rm-'+ei+'-'+subIdx).addEventListener('click', () => removeFromTodaySuperset(ei, subIdx));
+    card.querySelector('#ss-rm-'+ei+'-'+subIdx).addEventListener('click', e => { e.stopPropagation(); removeFromTodaySuperset(ei, subIdx); });
   });
-  card.querySelector('#ss-addex-'+ei).addEventListener('click', () => addExToSuperset(ei));
+  card.querySelector('#ss-addex-'+ei).addEventListener('click', e => { e.stopPropagation(); addExToSuperset(ei); });
   return card;
+}
+
+function toggleSuperset(ei) {
+  const body = document.getElementById('ss-body-'+ei);
+  const hdr = document.getElementById('ss-hdr-'+ei);
+  const chev = document.getElementById('ss-chev-'+ei);
+  const open = body.classList.toggle('open');
+  chev.classList.toggle('open', open);
+  hdr.classList.toggle('collapsed', !open);
 }
 
 function toggleTodaySelectMode() {
@@ -1745,6 +1772,7 @@ function ungroupToday(ei) {
 function removeFromTodaySuperset(ei, subIdx) {
   const top = currentSession.exercises[ei];
   if(!isSessionSuperset(top)) return;
+  if(!confirm(`Remove "${top.exercises[subIdx].name}" from the superset?`)) return;
   top.exercises.splice(subIdx, 1);
   if(top.exercises.length <= 1) currentSession.exercises.splice(ei, 1, ...top.exercises);
   saveSession();
@@ -1875,6 +1903,7 @@ function deleteSet(ei, si, subIdx) {
   const top = currentSession.exercises[ei];
   const arr = subIdx==null ? top.sets : top.exercises[subIdx].sets;
   if(arr.length <= 1) return; // always keep at least 1 set
+  if(!confirm('Delete this set?')) return;
   arr.splice(si, 1);
   const body = document.getElementById('ex-body-'+ei);
   if(body) body.classList.add('open');
@@ -2745,12 +2774,30 @@ function renderHomeHero() {
   // This week's completed workout types, for the quadrant widget.
   const weekStart0 = new Date(); weekStart0.setHours(0,0,0,0); weekStart0.setDate(weekStart0.getDate()-weekStart0.getDay());
   const thisWeekTypes = new Set(allFinished.filter(s=>s.finishedAt>=weekStart0.getTime()).map(s=>s.type));
-  const typeDefs = [
-    { key:'upper',  label:'Upper',  emoji:'🏋️' },
-    { key:'lower',  label:'Lower',  emoji:'🦵' },
-    { key:'full',   label:'Full',   emoji:'🔥' },
-    { key:'cardio', label:'Cardio', emoji:'🏃' }
-  ];
+  // The 4 slots shown are the last 4 *distinct* workout types actually
+  // logged (most-recently-done first), not a fixed set — so a new custom
+  // type (or one you haven't touched in a while) automatically earns a slot
+  // once you log it, bumping out whichever type has gone longest unused.
+  // Deleted types are skipped. Falls back to the default four to fill any
+  // remaining slots (covers a fresh install with little/no history).
+  const validTypeIds = new Set(workoutTypes.map(t=>t.id));
+  const recentTypesOrder = [...allFinished]
+    .sort((a,b) => b.finishedAt - a.finishedAt)
+    .map(s => s.type)
+    .filter(t => validTypeIds.has(t));
+  const last4TypeIds = [];
+  for(const t of recentTypesOrder) {
+    if(!last4TypeIds.includes(t)) last4TypeIds.push(t);
+    if(last4TypeIds.length >= 4) break;
+  }
+  for(const t of DEFAULT_WORKOUT_TYPES.map(d=>d.id)) {
+    if(last4TypeIds.length >= 4) break;
+    if(!last4TypeIds.includes(t)) last4TypeIds.push(t);
+  }
+  const typeDefs = last4TypeIds.map(id => {
+    const wt = getWorkoutType(id);
+    return { key:id, label:(wt?.label||id).replace(/ Body$/,''), emoji:wt?.icon||'💪' };
+  });
   const quadHtml = `<div class="home-quad-card" onclick="showPage('history')">
     <div class="home-quad-label">THIS WEEK</div>
     <div class="home-quad-grid">
@@ -3872,6 +3919,7 @@ function buildLibTypeSection(t, i, total) {
         <button class="lib-move-btn" id="lib-typedn-${t.id}" title="Move down" ${i===total-1?'disabled':''}>▼</button>
         <button class="lib-tool-btn" id="lib-selmode-${t.id}" onclick="toggleLibSelectMode('${t.id}')">⛓ Group</button>
         <button class="lib-tool-btn" onclick="openSupersetBuilder('library','${t.id}')">+ Superset</button>
+        <button class="lib-del-btn" id="lib-typedel-${t.id}" title="Delete workout type">✕</button>
       </span>
     </div>
     <div class="ex-body${t.collapsed?'':' open'}" id="${bodyId}">
@@ -3889,21 +3937,24 @@ function buildLibTypeSection(t, i, total) {
   section.querySelector('#lib-chevwrap-'+t.id).addEventListener('click', () => toggleLibSectionCollapse(t.id));
   section.querySelector('#lib-typeup-'+t.id).addEventListener('click', e => { e.stopPropagation(); moveWorkoutType(t.id, -1); });
   section.querySelector('#lib-typedn-'+t.id).addEventListener('click', e => { e.stopPropagation(); moveWorkoutType(t.id, 1); });
+  section.querySelector('#lib-typedel-'+t.id).addEventListener('click', e => { e.stopPropagation(); removeWorkoutType(t.id); });
   section.querySelector('#lib-add-input-'+t.id).addEventListener('input', e => renderLibAddSuggestions(t.id, e.target.value));
   return section;
 }
 
 // Cardio (and any future isCardio type) has no exercise list to manage, so it
-// only gets a slim row in the shared order — name + move buttons.
+// only gets a slim row in the shared order — name + move + delete buttons.
 function buildCardioTypeRow(t, i, total) {
   const row = document.createElement('div');
   row.className = 'lib-ex-row';
   row.innerHTML = `
     <div class="lib-ex-name" style="color:${t.color};">${t.icon} ${t.label.toUpperCase()}</div>
     <button class="lib-move-btn" id="lib-typeup-${t.id}" title="Move up" ${i===0?'disabled':''}>▲</button>
-    <button class="lib-move-btn" id="lib-typedn-${t.id}" title="Move down" ${i===total-1?'disabled':''}>▼</button>`;
+    <button class="lib-move-btn" id="lib-typedn-${t.id}" title="Move down" ${i===total-1?'disabled':''}>▼</button>
+    <button class="lib-del-btn" id="lib-typedel-${t.id}" title="Delete workout type">✕</button>`;
   row.querySelector('#lib-typeup-'+t.id).addEventListener('click', () => moveWorkoutType(t.id, -1));
   row.querySelector('#lib-typedn-'+t.id).addEventListener('click', () => moveWorkoutType(t.id, 1));
+  row.querySelector('#lib-typedel-'+t.id).addEventListener('click', () => removeWorkoutType(t.id));
   return row;
 }
 
@@ -3924,6 +3975,29 @@ function moveWorkoutType(id, dir) {
   saveWorkoutTypes();
   renderLibrary();
   renderTypeBar();
+}
+
+// Deleting a type only removes it from the managed list (and its exercise
+// list) — past sessions logged under it are untouched and keep showing up
+// in Log/Trends, just without the nice label/color (typeColor() and the
+// TEMPLATES[s.type]?.label fallbacks both degrade gracefully for an id no
+// longer in workoutTypes).
+function removeWorkoutType(id) {
+  if(workoutTypes.length <= 1) { showToast('Need at least 1 workout type'); return; }
+  const t = getWorkoutType(id);
+  if(!t) return;
+  if(!confirm(`Delete "${t.label}"? Past workouts logged under it are kept, but it won't be selectable anymore.`)) return;
+  workoutTypes = workoutTypes.filter(x=>x.id!==id);
+  delete library[id];
+  delete TEMPLATES[id];
+  delete libSelectMode[id];
+  delete libSelected[id];
+  saveWorkoutTypes();
+  saveLibrary();
+  if(currentType === id) setType(workoutTypes[0].id);
+  renderLibrary();
+  renderTypeBar();
+  showToast('Deleted "'+t.label+'"');
 }
 
 function addWorkoutType() {
