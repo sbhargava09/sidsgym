@@ -1341,7 +1341,7 @@ function typeBtnHTML(t, isActive) {
 function renderTypeBar() {
   const bar = document.getElementById('type-bar');
   if(!bar) return;
-  bar.innerHTML = workoutTypes.slice(0,5).map(t => typeBtnHTML(t, t.id===currentType)).join('');
+  bar.innerHTML = workoutTypes.slice(0,4).map(t => typeBtnHTML(t, t.id===currentType)).join('');
   bar.querySelectorAll('[data-id]').forEach(el => el.addEventListener('click', () => setType(el.dataset.id)));
 }
 function setType(t) {
@@ -1384,7 +1384,7 @@ function updatePace() {
 // ── SESSION INIT ──────────────────────────────────────────────────────────────
 // Session keys are unique per session: "YYYY-MM-DD_timestamp"
 // This allows multiple sessions per day, each counted independently.
-function dateKey(d){ return new Date(d).toISOString().slice(0,10); }
+function dateKey(d){ return new Date(d).toLocaleDateString('en-CA', {timeZone: 'America/Los_Angeles'}); }
 function todayKey(){ return dateKey(new Date()); }
 function makeSessionKey(type){ return dateKey(new Date()) + '_' + Date.now() + '_' + type; }
 function sessionDate(k){ return k.slice(0,10); } // extract YYYY-MM-DD from key
@@ -3917,12 +3917,14 @@ function buildLibTypeSection(t, i, total) {
       <span style="display:flex;gap:6px;">
         <button class="lib-move-btn" id="lib-typeup-${t.id}" title="Move up" ${i===0?'disabled':''}>▲</button>
         <button class="lib-move-btn" id="lib-typedn-${t.id}" title="Move down" ${i===total-1?'disabled':''}>▼</button>
-        <button class="lib-tool-btn" id="lib-selmode-${t.id}" onclick="toggleLibSelectMode('${t.id}')">⛓ Group</button>
-        <button class="lib-tool-btn" onclick="openSupersetBuilder('library','${t.id}')">+ Superset</button>
         <button class="lib-del-btn" id="lib-typedel-${t.id}" title="Delete workout type">✕</button>
       </span>
     </div>
     <div class="ex-body${t.collapsed?'':' open'}" id="${bodyId}">
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <button class="lib-tool-btn" id="lib-selmode-${t.id}" onclick="toggleLibSelectMode('${t.id}')">⛓ Group</button>
+        <button class="lib-tool-btn" onclick="openSupersetBuilder('library','${t.id}')">+ Superset</button>
+      </div>
       <div class="sel-bar" id="lib-selbar-${t.id}" style="display:none;">
         <span id="lib-selcount-${t.id}">0 selected</span>
         <div class="sel-bar-btns">
