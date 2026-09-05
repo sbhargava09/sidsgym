@@ -596,6 +596,17 @@ body{display:flex;flex-direction:column;}
     <div class="chart-wrap"><div style="position:relative;height:130px;"><canvas id="sessions-chart"></canvas></div></div>
   </div>
   <div class="trend-section">
+    <div class="trend-title" id="muscle-vol-chart-title">VOLUME BY MUSCLE GROUP</div>
+    <div class="chart-wrap"><div style="position:relative;height:180px;"><canvas id="muscle-vol-chart"></canvas></div></div>
+  </div>
+  <div class="trend-section">
+    <div class="goals-header">
+      <div class="trend-title" id="e1rm-chart-title" style="margin-bottom:0;">EST. 1RM TREND</div>
+      <select id="e1rm-ex-select" onchange="setE1rmExercise(this.value)" style="background:var(--surf2);border:1px solid var(--border2);border-radius:var(--rsm);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:6px 8px;max-width:160px;"></select>
+    </div>
+    <div class="chart-wrap"><div style="position:relative;height:150px;"><canvas id="e1rm-chart"></canvas></div></div>
+  </div>
+  <div class="trend-section">
     <div class="trend-title">BEST LIFTS — TOP WEIGHT PER EXERCISE</div>
     <div class="chart-wrap" id="best-lifts"><div style="font-size:12px;color:var(--text3);">Complete workouts to see your best lifts.</div></div>
   </div>
@@ -3486,8 +3497,119 @@ function bestEverReps(name) {
 
 let chartInstances = {};
 let trendsRange = 'all';
+let e1rmSelectedExercise = null;
 const TREND_RANGE_WEEKS = { '4w':4, '3m':13, '6m':26, '1y':52 };
 const TREND_RANGE_LABELS = { '4w':'LAST 4 WEEKS', '3m':'LAST 3 MONTHS', '6m':'LAST 6 MONTHS', '1y':'LAST YEAR', 'all':'ALL TIME' };
+
+// Earliest date (YYYY-MM-DD) included in the currently selected trends range —
+// same week-aligned start used by the weekly volume/sessions buckets, so every
+// range-scoped chart on this page agrees on what's "in range".
+function currentRangeStartStr(allDone) {
+  const weeks = trendsRangeWeeks(allDone);
+  const rangeStart = new Date(); rangeStart.setHours(0,0,0,0);
+  rangeStart.setDate(rangeStart.getDate() - rangeStart.getDay() - (weeks-1)*7);
+  return dateKey(rangeStart);
+}
+
+// Epley estimated 1RM: weight * (1 + reps/30). Only meaningful for loaded
+// (non-bodyweight) exercises — bodyweight lifts are excluded from the picker.
+function e1rmEstimate(weight, reps) { return weight * (1 + reps/30); }
+function exerciseE1RMHistory(name, rangeStartStr) {
+  const hist = [];
+  Object.values(sessions).forEach(s=>{
+    if(!s.finishedAt) return;
+    const sd = sessionDisplayDate(s)||'';
+    if(rangeStartStr && sd < rangeStartStr) return;
+    flattenExercises(s.exercises).forEach(ex=>{
+      if(ex.name!==name) return;
+      const doneSets = ex.sets.filter(st=>st.done && st.weight>0 && st.reps>0);
+      if(!doneSets.length) return;
+      const best = Math.max(...doneSets.map(st=>e1rmEstimate(st.weight, st.reps)));
+      hist.push({ date: sd, ts: s.finishedAt||s.startedAt||0, value: Math.round(best) });
+    });
+  });
+  return hist.sort((a,b)=>a.ts-b.ts);
+}
+
+function setE1rmExercise(name) {
+  e1rmSelectedExercise = name;
+  renderE1rmChart();
+}
+
+// Est. 1RM line for one exercise at a time, picked from a dropdown of every
+// non-bodyweight exercise with at least one logged working set.
+function renderE1rmChart() {
+  const allDone = Object.values(sessions).filter(s=>s.finishedAt);
+  const select = document.getElementById('e1rm-ex-select');
+  const exNames = [...new Set(allDone.flatMap(s=>flattenExercises(s.exercises).map(ex=>ex.name)))]
+    .filter(n=>!isBodyweightEx(n) && exerciseE1RMHistory(n, null).length)
+    .sort((a,b)=>a.localeCompare(b));
+
+  if(chartInstances['e1rm-chart']) { chartInstances['e1rm-chart'].destroy(); delete chartInstances['e1rm-chart']; }
+  if(!exNames.length){
+    select.innerHTML = '<option>—</option>';
+    select.disabled = true;
+    document.getElementById('e1rm-chart-title').textContent = 'EST. 1RM TREND';
+    return;
+  }
+  select.disabled = false;
+  if(!e1rmSelectedExercise || !exNames.includes(e1rmSelectedExercise)) {
+    e1rmSelectedExercise = exNames
+      .map(n=>({n, c:exerciseE1RMHistory(n, null).length}))
+      .sort((a,b)=>b.c-a.c)[0].n;
+  }
+  select.innerHTML = exNames.map(n=>`<option value="${n}"${n===e1rmSelectedExercise?' selected':''}>${n}</option>`).join('');
+
+  const rangeStartStr = currentRangeStartStr(allDone);
+  const hist = exerciseE1RMHistory(e1rmSelectedExercise, rangeStartStr);
+  const labels = hist.map(h=>new Date(h.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+  chartInstances['e1rm-chart'] = new Chart(document.getElementById('e1rm-chart'), {
+    type:'line',
+    data:{ labels, datasets:[{
+      data: hist.map(h=>h.value), borderColor:'#c8f04a', backgroundColor:'#c8f04a22',
+      borderWidth:2.5, pointRadius:hist.length>20?0:3, pointBackgroundColor:'#c8f04a', tension:0.3, fill:true
+    }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+      y:{ ticks:{color:'#545c66',font:{family:'DM Mono',size:9}}, grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false} },
+      x:{ ticks:{color:'#545c66',font:{family:'DM Mono',size:8},maxRotation:40,autoSkip:true,maxTicksLimit:10}, grid:{display:false}, border:{display:false} }
+    }}
+  });
+  document.getElementById('e1rm-chart-title').textContent = 'EST. 1RM TREND — ' + TREND_RANGE_LABELS[trendsRange];
+}
+
+// Total training volume (weight × reps, done sets only) broken down by muscle
+// group for the selected range — surfaces imbalances the per-exercise charts
+// don't (e.g. chest climbing while back volume stalls). Exercises outside the
+// tagged EXERCISE_BANK (custom entries) roll up into "Other".
+function renderMuscleVolumeChart() {
+  const allDone = Object.values(sessions).filter(s=>s.finishedAt);
+  const rangeStartStr = currentRangeStartStr(allDone);
+  const totals = {};
+  allDone.forEach(s=>{
+    const sd = sessionDisplayDate(s)||'';
+    if(sd < rangeStartStr) return;
+    flattenExercises(s.exercises).forEach(ex=>{
+      const vol = ex.sets.filter(st=>st.done).reduce((a,st)=>a+st.weight*st.reps,0);
+      if(!vol) return;
+      const group = EXERCISE_GROUP_LOOKUP[ex.name] || 'Other';
+      totals[group] = (totals[group]||0) + vol;
+    });
+  });
+  const rows = Object.entries(totals).map(([g,v])=>({g,v})).filter(r=>r.v>0).sort((a,b)=>b.v-a.v);
+  if(chartInstances['muscle-vol-chart']) { chartInstances['muscle-vol-chart'].destroy(); delete chartInstances['muscle-vol-chart']; }
+  chartInstances['muscle-vol-chart'] = new Chart(document.getElementById('muscle-vol-chart'), {
+    type:'bar',
+    data:{ labels: rows.map(r=>r.g), datasets:[{
+      data: rows.map(r=>Math.round(r.v)), backgroundColor: rows.map(r=>MUSCLE_GROUP_COLORS[r.g]||'#8a9099'),
+      borderRadius:3, barThickness:14
+    }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+      x:{ beginAtZero:true, ticks:{color:'#545c66',font:{family:'DM Mono',size:9}}, grid:{color:'rgba(255,255,255,0.04)'}, border:{display:false} },
+      y:{ ticks:{color:'#8a9099',font:{family:'Syne',size:11,weight:'700'}}, grid:{display:false}, border:{display:false} }
+    }}
+  });
+  document.getElementById('muscle-vol-chart-title').textContent = 'VOLUME BY MUSCLE GROUP — ' + TREND_RANGE_LABELS[trendsRange];
+}
 
 function setTrendsRange(r) {
   trendsRange = r;
@@ -3727,6 +3849,8 @@ function renderTrends() {
   renderOverview(allDone, weeks);
   renderCalendar();
   renderGoals();
+  renderMuscleVolumeChart();
+  renderE1rmChart();
   const weekLabels=[], sessionData=[], volData=[];
   for(let w=weeks-1;w>=0;w--){
     const ws=new Date(); ws.setHours(0,0,0,0); ws.setDate(ws.getDate()-ws.getDay()-w*7);
