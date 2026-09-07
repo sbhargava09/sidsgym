@@ -574,7 +574,7 @@ body{display:flex;flex-direction:column;}
         <div class="heat-title" id="cal-month-label">Month</div>
         <button class="cal-nav-btn" id="cal-next-btn" onclick="calNav(1)">›</button>
       </div>
-      <div class="cal-dow-row"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
+      <div class="cal-dow-row"><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div></div>
       <div class="cal-grid" id="cal-grid"></div>
     </div>
   </div>
@@ -1397,6 +1397,9 @@ function updatePace() {
 // This allows multiple sessions per day, each counted independently.
 function dateKey(d){ return new Date(d).toLocaleDateString('en-CA', {timeZone: 'America/Los_Angeles'}); }
 function todayKey(){ return dateKey(new Date()); }
+// Monday-start week: getDay() is 0=Sun..6=Sat, so shift Sunday to the end of
+// the week (6 days back from itself) instead of the default Sun-first bucket.
+function mondayOffset(d){ return (d.getDay()+6)%7; }
 function makeSessionKey(type){ return dateKey(new Date()) + '_' + Date.now() + '_' + type; }
 function sessionDate(k){ return k.slice(0,10); } // extract YYYY-MM-DD from key
 
@@ -2783,7 +2786,7 @@ function renderHomeHero() {
   document.getElementById('home-greet-sub').textContent = streak>0 ? `${streak} day streak — keep it going!` : 'Ready to train?';
 
   // This week's completed workout types, for the quadrant widget.
-  const weekStart0 = new Date(); weekStart0.setHours(0,0,0,0); weekStart0.setDate(weekStart0.getDate()-weekStart0.getDay());
+  const weekStart0 = new Date(); weekStart0.setHours(0,0,0,0); weekStart0.setDate(weekStart0.getDate()-mondayOffset(weekStart0));
   const thisWeekTypes = new Set(allFinished.filter(s=>s.finishedAt>=weekStart0.getTime()).map(s=>s.type));
   // The 4 slots shown are the last 4 *distinct* workout types actually
   // logged (most-recently-done first), not a fixed set — so a new custom
@@ -2850,9 +2853,9 @@ function renderHomeDaysStrip() {
   const allFinished = Object.values(sessions).filter(s=>s.finishedAt);
   const doneDates = new Set(allFinished.map(s=>sessionDisplayDate(s)).filter(Boolean));
   const todayStr = todayKey();
-  const dowNames = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const dowNames = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
   const weekStart = new Date(); weekStart.setHours(0,0,0,0);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay() - homeWeekOffset*7);
+  weekStart.setDate(weekStart.getDate() - mondayOffset(weekStart) - homeWeekOffset*7);
   let stripHtml = '';
   for(let i=0;i<7;i++){
     const dd = new Date(weekStart); dd.setDate(dd.getDate()+i);
@@ -3222,7 +3225,7 @@ function updateStats() {
   document.getElementById('s-month').textContent=mc;
 
   // This week volume: sum lbs across all strength sessions this week
-  const ws=new Date(); ws.setHours(0,0,0,0); ws.setDate(ws.getDate()-ws.getDay());
+  const ws=new Date(); ws.setHours(0,0,0,0); ws.setDate(ws.getDate()-mondayOffset(ws));
   const we=new Date(ws); we.setDate(we.getDate()+7);
   let wv=0;
   allFinished.forEach(s=>{
@@ -3507,7 +3510,7 @@ const TREND_RANGE_LABELS = { '4w':'LAST 4 WEEKS', '3m':'LAST 3 MONTHS', '6m':'LA
 function currentRangeStartStr(allDone) {
   const weeks = trendsRangeWeeks(allDone);
   const rangeStart = new Date(); rangeStart.setHours(0,0,0,0);
-  rangeStart.setDate(rangeStart.getDate() - rangeStart.getDay() - (weeks-1)*7);
+  rangeStart.setDate(rangeStart.getDate() - mondayOffset(rangeStart) - (weeks-1)*7);
   return dateKey(rangeStart);
 }
 
@@ -3630,7 +3633,7 @@ function trendsRangeWeeks(allDone) {
 // weekly volume/sessions charts below so a "previous period" comparison of
 // equal length is just the same bucketing shifted back by `weeks` weeks.
 function renderOverview(allDone, weeks) {
-  const weekStart0 = new Date(); weekStart0.setHours(0,0,0,0); weekStart0.setDate(weekStart0.getDate()-weekStart0.getDay());
+  const weekStart0 = new Date(); weekStart0.setHours(0,0,0,0); weekStart0.setDate(weekStart0.getDate()-mondayOffset(weekStart0));
   const bucketSessions = (offsetWeeks) => {
     const arr = [];
     for(let w=weeks-1;w>=0;w--){
@@ -3711,7 +3714,7 @@ function renderOverview(allDone, weeks) {
 }
 
 // 30-day workout heatmap card, independent of the range selector.
-// Minimal Sun–Sat month calendar with worked-out days highlighted. calMonthOffset
+// Minimal Mon–Sun month calendar with worked-out days highlighted. calMonthOffset
 // is 0 for the current month, 1 for one month back, etc. — capped at 0 so you
 // can't page into the future.
 let calMonthOffset = 0;
@@ -3732,7 +3735,7 @@ function renderCalendar() {
   const y = viewDate.getFullYear(), m = viewDate.getMonth();
   document.getElementById('cal-month-label').textContent = viewDate.toLocaleDateString('en-US',{month:'long',year:'numeric'});
   document.getElementById('cal-next-btn').disabled = calMonthOffset===0;
-  const firstDow = new Date(y,m,1).getDay();
+  const firstDow = mondayOffset(new Date(y,m,1));
   const daysInMonth = new Date(y,m+1,0).getDate();
   const todayStr = todayKey();
   let html = '';
@@ -3853,7 +3856,7 @@ function renderTrends() {
   renderE1rmChart();
   const weekLabels=[], sessionData=[], volData=[];
   for(let w=weeks-1;w>=0;w--){
-    const ws=new Date(); ws.setHours(0,0,0,0); ws.setDate(ws.getDate()-ws.getDay()-w*7);
+    const ws=new Date(); ws.setHours(0,0,0,0); ws.setDate(ws.getDate()-mondayOffset(ws)-w*7);
     const we=new Date(ws); we.setDate(we.getDate()+7);
     const wsStr=dateKey(ws), weStr=dateKey(we);
     let sc=0, wv=0;
