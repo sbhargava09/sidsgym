@@ -128,6 +128,16 @@ body{display:flex;flex-direction:column;}
 .finish-btn{width:100%;padding:16px;border-radius:var(--r);border:none;background:var(--accent);color:#000;font-family:'Syne',sans-serif;font-size:16px;font-weight:800;cursor:pointer;margin-top:14px;letter-spacing:0.02em;}
 .finish-btn:active{opacity:0.85;}
 
+/* UNDO TOAST — a persistent (no auto-timeout) snackbar for "delete exercise"
+   in Today. Only the pill itself is interactive (pointer-events:auto) so the
+   rest of the page stays fully scrollable/tappable underneath it. Dismissed
+   by tapping UNDO, swiping the pill away, or another delete replacing it. */
+.undo-toast{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 18px);display:none;justify-content:center;z-index:150;pointer-events:none;padding:0 16px;}
+.undo-toast.show{display:flex;}
+.undo-toast-inner{pointer-events:auto;display:flex;align-items:center;gap:12px;background:#1e2126;border:1px solid var(--border2);color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:12px 8px 12px 16px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.45);max-width:420px;width:100%;touch-action:pan-y;}
+.undo-toast-msg{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.undo-toast-btn{background:none;border:none;color:var(--accent);font-family:'Syne',sans-serif;font-weight:800;font-size:13px;letter-spacing:0.04em;cursor:pointer;padding:8px 10px;flex-shrink:0;}
+
 /* DRUM PICKER OVERLAY */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity 0.2s;}
 .overlay.show{opacity:1;pointer-events:all;}
@@ -154,6 +164,7 @@ body{display:flex;flex-direction:column;}
 .sheet-close{font-size:22px;color:var(--text3);cursor:pointer;padding:4px;}
 .sheet-input{background:var(--surf2);border:1px solid var(--border2);border-radius:var(--rsm);padding:12px 14px;font-size:16px;color:var(--text);font-family:'Syne',sans-serif;width:calc(100% - 40px);margin:0 20px 12px;display:block;}
 .sheet-input:focus{outline:none;border-color:var(--accent);}
+.cat-select{cursor:pointer;}
 .ex-suggest-list{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;margin-bottom:12px;}
 .add-ex-sheet .ex-suggest-list{margin:0 20px 12px;}
 .ex-suggest-item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surf2);border:1px solid var(--border2);border-radius:var(--rsm);padding:10px 14px;font-size:14px;color:var(--text);cursor:pointer;}
@@ -678,6 +689,7 @@ body{display:flex;flex-direction:column;}
     Your active list loads into each workout. Search to add from the full exercise catalog, or type something new — either way it's added to this list. Changes take effect next time you start a workout.
   </div>
 
+  <div id="lib-untagged-section"></div>
   <div id="lib-sections"></div>
   <button class="add-ex-btn" onclick="addWorkoutType()">+ Add Workout Type</button>
 </div>
@@ -812,6 +824,20 @@ body{display:flex;flex-direction:column;}
   </div>
 </div>
 
+<!-- CATEGORY PICKER OVERLAY — shown whenever a name outside the tagged catalog
+     is added, so every exercise ends up with a muscle-group tag -->
+<div class="overlay" id="cat-pick-overlay">
+  <div class="add-ex-sheet">
+    <div class="sheet-header">
+      <div style="font-size:15px;font-weight:700;">Tag New Exercise</div>
+      <div class="sheet-close" onclick="cancelCategoryTag()">✕</div>
+    </div>
+    <div class="ss-hint">"<span id="cat-pick-name"></span>" isn't in the catalog yet — pick the category it belongs to.</div>
+    <select class="sheet-input cat-select" id="cat-pick-select"></select>
+    <button class="sheet-save-btn" onclick="confirmCategoryTag()">SAVE TAG</button>
+  </div>
+</div>
+
 <!-- GOALS EDITOR OVERLAY -->
 <div class="overlay" id="goals-overlay">
   <div class="metrics-sheet">
@@ -937,6 +963,7 @@ const APP_VERSION  = 'v5.2';
 const GOALS_KEY    = 'sidsgym_goals';
 const EXERCISE_TIMING_KEY = 'sidsgym_exercise_timing'; // { [exerciseName]: {totalMs, totalSets} } — learned pace per exercise
 const TYPE_OVERHEAD_KEY   = 'sidsgym_type_overhead';   // { upper|lower|full: {totalMs, count} } — learned warmup/cooldown/break time
+const CUSTOM_TAGS_KEY     = 'sidsgym_custom_tags';     // { [exerciseName]: muscleGroup } — user-assigned tags for exercises outside EXERCISE_BANK
 const DEFAULT_SEC_PER_SET = 90; // generic assumption for an untimed exercise: ~90s per working set including its rest
 const DEFAULT_OVERHEAD_MIN = 10; // generic assumption for warmup+cooldown+transitions
 
@@ -1083,12 +1110,23 @@ const EXERCISE_BANK = [
   {name:'Oblique Crunches',group:'Core'},{name:'Flutter Kicks',group:'Core'},
   {name:'Toes to Bar',group:'Core'},{name:'Stability Ball Rollout',group:'Core'}
 ];
+// Base lookup from the built-in catalog, extended with any user-assigned
+// tags for exercises typed in fresh (see requireCategoryTag) — kept as one
+// mutable object so every existing EXERCISE_GROUP_LOOKUP[name] call site
+// picks up custom tags without change.
 const EXERCISE_GROUP_LOOKUP = Object.fromEntries(EXERCISE_BANK.map(e=>[e.name,e.group]));
 
 let sessions      = load(SESSIONS_KEY, {});
 let deletedSessionIds = load(DELETED_SESSIONS_KEY, []);
 let healthLog     = load(HEALTH_KEY, {});
 let library       = load(LIBRARY_KEY, JSON.parse(JSON.stringify(DEFAULT_LIBRARY)));
+let customTags    = load(CUSTOM_TAGS_KEY, {});
+Object.assign(EXERCISE_GROUP_LOOKUP, customTags);
+function saveCustomTags() {
+  save(CUSTOM_TAGS_KEY, customTags);
+  syncToSheets();
+  rtdbSetCustomTags(customTags);
+}
 let customMetrics = load(METRICS_KEY, { vars: [], logs: [] });
 let bodyData      = load(BODY_KEY, { height: null, measurements: {} });
 const DEFAULT_GOALS = [
@@ -1671,6 +1709,7 @@ function buildExerciseCard(ex, ei, total) {
             <div class="ex-meta">${doneSets}/${ex.sets.length} sets · ${ex.sets.reduce((a,s)=>a+(s.done?s.weight*s.reps:0),0).toLocaleString()} lbs</div>
           </div>
           ${spark}
+          ${todaySelectMode ? '' : `<button class="del-set-btn" id="del-ex-${ei}" title="Delete exercise">✕</button>`}
           ${todaySelectMode ? '' : `<div class="ex-chevron" id="chev-${ei}">›</div>`}
         </div>
         <div class="ex-body" id="ex-body-${ei}">
@@ -1691,6 +1730,7 @@ function buildExerciseCard(ex, ei, total) {
   const dnBtn = card.querySelector('#mv-dn-'+ei);
   upBtn.addEventListener('click', e => { e.stopPropagation(); moveEx(ei, -1); });
   dnBtn.addEventListener('click', e => { e.stopPropagation(); moveEx(ei,  1); });
+  card.querySelector('#del-ex-'+ei).addEventListener('click', e => { e.stopPropagation(); deleteExerciseToday(ei); });
   card.querySelector('#ex-hdr-'+ei).addEventListener('click', () => toggleEx(ei));
   wireSetRows(card, ei, null, ex.sets);
   return card;
@@ -2007,6 +2047,7 @@ function saveMetrics() {
   resetTodayUI();
 }
 function resetTodayUI() {
+  hideUndoToast(); // the workout this undo referred to is going away — nothing left to restore into
   document.getElementById('start-btn').style.display = '';
   document.getElementById('workout-content').style.display = 'none';
   document.querySelector('.type-bar').style.pointerEvents = '';
@@ -2043,7 +2084,7 @@ function setSheetsUrl(url){ localStorage.setItem('sidsgym_sheets_url', url.trim(
 // from its own stored state, instead of just seeing a smaller `sessions` and
 // merging the "missing" ones right back in from what it already has.
 function collectState() {
-  return { sessions, health: healthLog, library, customMetrics, bodyData, deletedSessionIds, goals, workoutTypes, exerciseTiming, typeOverhead };
+  return { sessions, health: healthLog, library, customMetrics, bodyData, deletedSessionIds, goals, workoutTypes, exerciseTiming, typeOverhead, customTags };
 }
 
 // exerciseTiming/typeOverhead are cumulative aggregates (not append-only
@@ -2099,6 +2140,11 @@ function applyCloudState(state) {
   if(state.library) {
     Object.assign(library, state.library);
     saveLibrary();
+  }
+  if(state.customTags) {
+    Object.assign(customTags, state.customTags);
+    Object.assign(EXERCISE_GROUP_LOOKUP, customTags);
+    save(CUSTOM_TAGS_KEY, customTags);
   }
   if(state.customMetrics) {
     if(state.customMetrics.vars) customMetrics.vars = state.customMetrics.vars;
@@ -2208,7 +2254,7 @@ function connectRTDB() {
 
 function disconnectRTDB() {
   if(rtdbBase) {
-    ['sessions','health','library','customMetrics/vars','customMetrics/logs','bodyData/height','bodyData/measurements','deletedSessionIds','goals','workoutTypes','exerciseTiming','typeOverhead']
+    ['sessions','health','library','customTags','customMetrics/vars','customMetrics/logs','bodyData/height','bodyData/measurements','deletedSessionIds','goals','workoutTypes','exerciseTiming','typeOverhead']
       .forEach(p => rtdbBase.child(p).off());
   }
   rtdbBase = null;
@@ -2226,6 +2272,7 @@ function applyRTDBRoot(state) {
   if(state.sessions) applyRTDBSessions(state.sessions);
   if(state.health) applyRTDBHealth(state.health);
   if(state.library) applyRTDBLibrary(state.library);
+  if(state.customTags) applyRTDBCustomTags(state.customTags);
   if(state.customMetrics && state.customMetrics.vars) applyRTDBCMVars(state.customMetrics.vars);
   if(state.customMetrics && state.customMetrics.logs) applyRTDBCMLogs(state.customMetrics.logs);
   if(state.bodyData && state.bodyData.height) applyRTDBHeight(state.bodyData.height);
@@ -2243,6 +2290,7 @@ function attachRTDBListeners() {
   rtdbBase.child('sessions').on('value', s => applyRTDBSessions(s.val()||{}));
   rtdbBase.child('health').on('value', s => applyRTDBHealth(s.val()||{}));
   rtdbBase.child('library').on('value', s => applyRTDBLibrary(s.val()));
+  rtdbBase.child('customTags').on('value', s => applyRTDBCustomTags(s.val()));
   rtdbBase.child('customMetrics/vars').on('value', s => applyRTDBCMVars(s.val()||{}));
   rtdbBase.child('customMetrics/logs').on('value', s => applyRTDBCMLogs(s.val()||{}));
   rtdbBase.child('bodyData/height').on('value', s => applyRTDBHeight(s.val()));
@@ -2278,6 +2326,14 @@ function applyRTDBLibrary(remote) {
   Object.assign(library, remote);
   save(LIBRARY_KEY, library);
   rebuildTemplates();
+  refreshActivePage();
+}
+
+function applyRTDBCustomTags(remote) {
+  if(!remote) return;
+  Object.assign(customTags, remote);
+  Object.assign(EXERCISE_GROUP_LOOKUP, customTags);
+  save(CUSTOM_TAGS_KEY, customTags);
   refreshActivePage();
 }
 
@@ -2355,6 +2411,7 @@ function refreshActivePage() {
   else if(id==='trends') renderTrends();
   else if(id==='health') renderHealth();
   else if(id==='body') renderBodyPage();
+  else if(id==='library') renderLibrary();
 }
 
 // WRITE — one function per record type, each a no-op until connected.
@@ -2362,6 +2419,7 @@ function rtdbSetSession(id, obj) { if(!rtdbBase) return; rtdbBase.child('session
 function rtdbDeleteSession(id) { if(!rtdbBase) return; const upd={}; upd['sessions/'+id]=null; upd['deletedSessionIds/'+id]=true; rtdbBase.update(upd); }
 function rtdbSetHealth(dateKey, obj) { if(!rtdbBase) return; rtdbBase.child('health/'+dateKey).set(obj); }
 function rtdbSetLibrary(obj) { if(!rtdbBase) return; rtdbBase.child('library').set(obj); }
+function rtdbSetCustomTags(obj) { if(!rtdbBase) return; rtdbBase.child('customTags').set(obj); }
 function rtdbSetCMVar(varObj) { if(!rtdbBase) return; rtdbBase.child('customMetrics/vars/'+varObj.id).set(varObj); }
 function rtdbRemoveCMVar(id, tsList) {
   if(!rtdbBase) return;
@@ -2460,6 +2518,102 @@ function showToast(msg) {
   t.style.opacity = '1';
   t.style.transform = 'translateX(-50%) translateY(0)';
   setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(20px)'; }, 3500);
+}
+
+// ── DELETE EXERCISE (TODAY) — undo toast ───────────────────────────────────────
+// Deleting an exercise mid-workout is instant (no "are you sure?" dialog) —
+// instead it drops into an undo toast at the bottom that sticks around
+// indefinitely: unlike showToast() above, there's no setTimeout to fade it
+// out. It only goes away when the user taps UNDO, swipes it off, or deletes
+// another exercise (which drops the previous undo and shows a new one — the
+// first deletion is by then already committed, so nothing else has to happen
+// for it to become permanent). The wrapper stays pointer-events:none so the
+// pill is tappable/swipeable but everything else on the page — scrolling,
+// editing sets, whatever — keeps working right underneath it.
+let pendingDelete = null; // { session, index, item }
+
+function deleteExerciseToday(ei) {
+  const ex = currentSession.exercises[ei];
+  if(!ex) return;
+  currentSession.exercises.splice(ei, 1);
+  saveSession();
+  renderExercises();
+  pendingDelete = { session: currentSession, index: ei, item: ex };
+  showUndoToast(`Deleted "${ex.name}"`);
+}
+
+function undoDeleteExercise() {
+  const pending = pendingDelete;
+  hideUndoToast();
+  if(!pending || pending.session !== currentSession) return;
+  const insertAt = Math.min(pending.index, currentSession.exercises.length);
+  currentSession.exercises.splice(insertAt, 0, pending.item);
+  saveSession();
+  renderExercises();
+}
+
+function hideUndoToast() {
+  pendingDelete = null;
+  const wrap = document.getElementById('undo-toast');
+  if(wrap) wrap.classList.remove('show');
+}
+
+function showUndoToast(msg) {
+  let wrap = document.getElementById('undo-toast');
+  if(!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'undo-toast';
+    wrap.className = 'undo-toast';
+    wrap.innerHTML = `
+      <div class="undo-toast-inner" id="undo-toast-inner">
+        <span class="undo-toast-msg" id="undo-toast-msg"></span>
+        <button class="undo-toast-btn" id="undo-toast-btn">UNDO</button>
+      </div>`;
+    document.body.appendChild(wrap);
+    document.getElementById('undo-toast-btn').addEventListener('click', undoDeleteExercise);
+    wireUndoToastSwipe(document.getElementById('undo-toast-inner'));
+  }
+  const inner = document.getElementById('undo-toast-inner');
+  inner.style.transition = 'none';
+  inner.style.transform = '';
+  inner.style.opacity = '';
+  document.getElementById('undo-toast-msg').textContent = msg;
+  wrap.classList.add('show');
+}
+
+// Horizontal drag-to-dismiss, unified across mouse/touch via Pointer Events.
+function wireUndoToastSwipe(el) {
+  let drag = null;
+  el.addEventListener('pointerdown', e => {
+    // Capturing the pointer here would retarget the UNDO button's own
+    // click to this wrapper instead — let taps on the button through untouched.
+    if(e.target.closest('.undo-toast-btn')) return;
+    drag = { startX: e.clientX, dx: 0 };
+    el.setPointerCapture(e.pointerId);
+    el.style.transition = 'none';
+  });
+  el.addEventListener('pointermove', e => {
+    if(!drag) return;
+    drag.dx = e.clientX - drag.startX;
+    el.style.transform = `translateX(${drag.dx}px)`;
+    el.style.opacity = String(Math.max(0.15, 1 - Math.abs(drag.dx)/150));
+  });
+  const endDrag = () => {
+    if(!drag) return;
+    const dx = drag.dx;
+    drag = null;
+    el.style.transition = 'transform 0.2s, opacity 0.2s';
+    if(Math.abs(dx) > 70) {
+      el.style.transform = `translateX(${dx>0?300:-300}px)`;
+      el.style.opacity = '0';
+      setTimeout(hideUndoToast, 200);
+    } else {
+      el.style.transform = '';
+      el.style.opacity = '';
+    }
+  };
+  el.addEventListener('pointerup', endDrag);
+  el.addEventListener('pointercancel', endDrag);
 }
 
 // ── DRUM PICKER ───────────────────────────────────────────────────────────────
@@ -2647,6 +2801,41 @@ function renderExSuggestions(filter) {
   }, false);
 }
 
+// ── CATEGORY TAGGING ─────────────────────────────────────────────────────────
+// Every exercise the app knows about carries a muscle-group tag, either from
+// the built-in EXERCISE_BANK or from a user pick stored in customTags. Any
+// code path that's about to introduce a brand-new name should run it through
+// requireCategoryTag first — it resolves immediately for anything already
+// tagged, and otherwise blocks on a forced dropdown pick (no free text, so no
+// new categories can sneak in) before calling onConfirmed. This is the single
+// gate all "add exercise" flows share, so a name can never end up untagged.
+let pendingCategoryTag = null;
+function requireCategoryTag(name, onConfirmed) {
+  if(!name || EXERCISE_GROUP_LOOKUP[name]) { onConfirmed(); return; }
+  pendingCategoryTag = { name, onConfirmed };
+  document.getElementById('cat-pick-name').textContent = name;
+  document.getElementById('cat-pick-select').innerHTML =
+    '<option value="" disabled selected>Choose category…</option>' +
+    MUSCLE_GROUPS.map(g=>`<option value="${g}">${g}</option>`).join('');
+  showOverlay('cat-pick-overlay');
+}
+function cancelCategoryTag() {
+  closeOverlay('cat-pick-overlay');
+  pendingCategoryTag = null;
+}
+function confirmCategoryTag() {
+  if(!pendingCategoryTag) { closeOverlay('cat-pick-overlay'); return; }
+  const group = document.getElementById('cat-pick-select').value;
+  if(!group) { showToast('Pick a category'); return; }
+  const { name, onConfirmed } = pendingCategoryTag;
+  customTags[name] = group;
+  EXERCISE_GROUP_LOOKUP[name] = group;
+  saveCustomTags();
+  pendingCategoryTag = null;
+  closeOverlay('cat-pick-overlay');
+  onConfirmed();
+}
+
 function saveNewExercise() {
   const raw = document.getElementById('ex-name-input').value.trim();
   if(!raw) return;
@@ -2654,6 +2843,9 @@ function saveNewExercise() {
   // came from the catalog or was already in some active list.
   const existing = allSearchableExercises().find(n=>n.toLowerCase()===raw.toLowerCase());
   const name = existing || raw;
+  requireCategoryTag(name, () => finishSaveNewExercise(name));
+}
+function finishSaveNewExercise(name) {
   if(esAddExerciseMode) {
     const esType = esSession.type;
     if(esType!=='cardio' && library[esType] && !library[esType].flatMap(libItemNames).includes(name)){
@@ -2704,10 +2896,12 @@ function closeSupersetBuilder() { closeOverlay('ss-overlay'); ssBuilderCtx = nul
 function renderSSBuilderSuggestions(filter) {
   const inputEl = document.getElementById('ss-search-input');
   renderExerciseSearchResults(filter, document.getElementById('ss-suggest-list'), inputEl, (name)=>{
-    if(!ssPicked.includes(name)) ssPicked.push(name);
-    inputEl.value = '';
-    document.getElementById('ss-suggest-list').innerHTML = '';
-    renderSSChips();
+    requireCategoryTag(name, () => {
+      if(!ssPicked.includes(name)) ssPicked.push(name);
+      inputEl.value = '';
+      document.getElementById('ss-suggest-list').innerHTML = '';
+      renderSSChips();
+    });
   }, true);
 }
 function renderSSChips() {
@@ -3930,6 +4124,7 @@ function exportData() {
     sessions: sessions,
     health: healthLog,
     library: library,
+    customTags: customTags,
     customMetrics: customMetrics,
     bodyData: bodyData,
     goals: goals,
@@ -3971,6 +4166,12 @@ function importData(event) {
       if (data.library) {
         Object.assign(library, data.library);
         saveLibrary();
+      }
+      // Restore custom exercise tags if present
+      if (data.customTags) {
+        Object.assign(customTags, data.customTags);
+        Object.assign(EXERCISE_GROUP_LOOKUP, customTags);
+        saveCustomTags();
       }
       // Restore custom metrics if present
       if (data.customMetrics) {
@@ -4147,7 +4348,54 @@ function addWorkoutType() {
   showToast('Added "'+name+'" as a new workout type');
 }
 
+// Exercises already sitting in some active list from before every exercise
+// was required to carry a muscle-group tag (or pulled in from an old backup)
+// won't have one in EXERCISE_GROUP_LOOKUP. Surface them here so they can be
+// tagged retroactively — same forced dropdown, no free-text categories.
+function untaggedLibraryExerciseNames() {
+  const names = new Set();
+  strengthWorkoutTypes().forEach(t => {
+    (library[t.id]||[]).flatMap(libItemNames).forEach(n => { if(!EXERCISE_GROUP_LOOKUP[n]) names.add(n); });
+  });
+  return [...names];
+}
+function renderUntaggedExercises() {
+  const section = document.getElementById('lib-untagged-section');
+  if(!section) return;
+  const names = untaggedLibraryExerciseNames();
+  if(!names.length) { section.innerHTML = ''; return; }
+  section.innerHTML = `
+    <div class="sec-label" style="margin-bottom:8px;">⚠ UNTAGGED EXERCISES</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.5;">
+      These were added before every exercise needed a category. Tag each one so it's #tagged like the rest of the catalog.
+    </div>
+    <div id="lib-untagged-list"></div>`;
+  const list = document.getElementById('lib-untagged-list');
+  names.forEach(name => {
+    const row = document.createElement('div');
+    row.className = 'lib-ex-row';
+    const selId = 'untag-sel-' + names.indexOf(name);
+    row.innerHTML = `
+      <div class="lib-ex-name">${name}</div>
+      <select class="cat-select" id="${selId}" style="background:var(--surf2);border:1px solid var(--border2);border-radius:var(--rsm);color:var(--text);font-family:'Syne',sans-serif;font-size:12px;padding:6px 8px;">
+        <option value="" disabled selected>Tag…</option>
+        ${MUSCLE_GROUPS.map(g=>`<option value="${g}">${g}</option>`).join('')}
+      </select>`;
+    row.querySelector('#'+selId).addEventListener('change', e => tagUntaggedExercise(name, e.target.value));
+    list.appendChild(row);
+  });
+}
+function tagUntaggedExercise(name, group) {
+  if(!group) return;
+  customTags[name] = group;
+  EXERCISE_GROUP_LOOKUP[name] = group;
+  saveCustomTags();
+  showToast(`Tagged "${name}" as ${group}`);
+  renderLibrary();
+}
+
 function renderLibrary() {
+  renderUntaggedExercises();
   const container = document.getElementById('lib-sections');
   if(!container) return;
   container.innerHTML = '';
@@ -4278,15 +4526,17 @@ function libRemoveFromSuperset(type, i, mi) {
   renderLibrary();
 }
 function libAddToSupersetGroup(type, i, name) {
-  const item = library[type][i];
-  if(!isSuperset(item)) return;
-  if(!item.superset.includes(name)) item.superset.push(name);
-  // Drop any separate standalone entry for the same exercise in this list —
-  // it now lives inside the group instead of also sitting on its own.
-  library[type] = library[type].filter(it => it !== name);
-  saveLibrary();
-  renderLibrary();
-  showToast('Added to superset');
+  requireCategoryTag(name, () => {
+    const item = library[type][i];
+    if(!isSuperset(item)) return;
+    if(!item.superset.includes(name)) item.superset.push(name);
+    // Drop any separate standalone entry for the same exercise in this list —
+    // it now lives inside the group instead of also sitting on its own.
+    library[type] = library[type].filter(it => it !== name);
+    saveLibrary();
+    renderLibrary();
+    showToast('Added to superset');
+  });
 }
 
 // Search-as-you-type add flow for each Library section — the exercise bank
@@ -4299,11 +4549,13 @@ function renderLibAddSuggestions(type, filter) {
 }
 
 function libAddExFromSearch(type, name) {
-  const alreadyIn = library[type].flatMap(libItemNames).includes(name);
-  if(!alreadyIn){ library[type].push(name); saveLibrary(); renderLibrary(); }
-  document.getElementById('lib-add-input-'+type).value = '';
-  document.getElementById('lib-add-suggest-'+type).innerHTML = '';
-  showToast(alreadyIn ? 'Already in list' : 'Added to ' + TEMPLATES[type].label);
+  requireCategoryTag(name, () => {
+    const alreadyIn = library[type].flatMap(libItemNames).includes(name);
+    if(!alreadyIn){ library[type].push(name); saveLibrary(); renderLibrary(); }
+    document.getElementById('lib-add-input-'+type).value = '';
+    document.getElementById('lib-add-suggest-'+type).innerHTML = '';
+    showToast(alreadyIn ? 'Already in list' : 'Added to ' + TEMPLATES[type].label);
+  });
 }
 
 function libMoveEx(type, i, dir) {
