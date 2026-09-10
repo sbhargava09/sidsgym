@@ -132,7 +132,7 @@ body{display:flex;flex-direction:column;}
    in Today. Only the pill itself is interactive (pointer-events:auto) so the
    rest of the page stays fully scrollable/tappable underneath it. Dismissed
    by tapping UNDO, swiping the pill away, or another delete replacing it. */
-.undo-toast{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 18px);display:none;justify-content:center;z-index:150;pointer-events:none;padding:0 16px;}
+.undo-toast{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 18px);display:none;justify-content:center;z-index:250;pointer-events:none;padding:0 16px;}
 .undo-toast.show{display:flex;}
 .undo-toast-inner{pointer-events:auto;display:flex;align-items:center;gap:12px;background:#1e2126;border:1px solid var(--border2);color:var(--text);font-family:'Syne',sans-serif;font-size:13px;padding:12px 8px 12px 16px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.45);max-width:420px;width:100%;touch-action:pan-y;}
 .undo-toast-msg{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -1826,15 +1826,40 @@ function ungroupToday(ei) {
 function removeFromTodaySuperset(ei, subIdx) {
   const top = currentSession.exercises[ei];
   if(!isSessionSuperset(top)) return;
-  if(!confirm(`Remove "${top.exercises[subIdx].name}" from the superset?`)) return;
+  const removed = top.exercises[subIdx];
+  const session = currentSession;
+  const willUngroup = top.exercises.length <= 2;
   top.exercises.splice(subIdx, 1);
   if(top.exercises.length <= 1) currentSession.exercises.splice(ei, 1, ...top.exercises);
   saveSession();
   renderExercises();
+  showUndoToast(`Removed "${removed.name}" from superset`, () => {
+    if(session !== currentSession) return;
+    top.exercises.splice(subIdx, 0, removed);
+    if(willUngroup) currentSession.exercises.splice(ei, 1, top);
+    saveSession();
+    renderExercises();
+  });
 }
 function addExToSuperset(ei) {
   pendingSupersetTargetEi = ei;
   showAddExercise();
+}
+
+function deleteExerciseToday(ei) {
+  const ex = currentSession.exercises[ei];
+  if(!ex) return;
+  const session = currentSession;
+  currentSession.exercises.splice(ei, 1);
+  saveSession();
+  renderExercises();
+  showUndoToast(`Deleted "${ex.name}"`, () => {
+    if(session !== currentSession) return;
+    const insertAt = Math.min(ei, currentSession.exercises.length);
+    currentSession.exercises.splice(insertAt, 0, ex);
+    saveSession();
+    renderExercises();
+  });
 }
 
 function toggleEx(ei) {
@@ -1957,12 +1982,24 @@ function deleteSet(ei, si, subIdx) {
   const top = currentSession.exercises[ei];
   const arr = subIdx==null ? top.sets : top.exercises[subIdx].sets;
   if(arr.length <= 1) return; // always keep at least 1 set
-  if(!confirm('Delete this set?')) return;
+  const removed = arr[si];
+  const session = currentSession;
   arr.splice(si, 1);
   const body = document.getElementById('ex-body-'+ei);
   if(body) body.classList.add('open');
   saveSession();
   renderExercises();
+  showUndoToast('Deleted set', () => {
+    if(session !== currentSession) return;
+    const top2 = currentSession.exercises[ei];
+    const arr2 = top2 && (subIdx==null ? top2.sets : top2.exercises?.[subIdx]?.sets);
+    if(!arr2) return;
+    arr2.splice(Math.min(si, arr2.length), 0, removed);
+    const body2 = document.getElementById('ex-body-'+ei);
+    if(body2) body2.classList.add('open');
+    saveSession();
+    renderExercises();
+  });
 }
 
 function updateProgress() {
@@ -2047,7 +2084,7 @@ function saveMetrics() {
   resetTodayUI();
 }
 function resetTodayUI() {
-  hideUndoToast(); // the workout this undo referred to is going away — nothing left to restore into
+  hideUndoToast(); // if a set/exercise undo was pending, the workout it referred to is going away — nothing left to restore into
   document.getElementById('start-btn').style.display = '';
   document.getElementById('workout-content').style.display = 'none';
   document.querySelector('.type-bar').style.pointerEvents = '';
@@ -2417,6 +2454,7 @@ function refreshActivePage() {
 // WRITE — one function per record type, each a no-op until connected.
 function rtdbSetSession(id, obj) { if(!rtdbBase) return; rtdbBase.child('sessions/'+id).set(obj); }
 function rtdbDeleteSession(id) { if(!rtdbBase) return; const upd={}; upd['sessions/'+id]=null; upd['deletedSessionIds/'+id]=true; rtdbBase.update(upd); }
+function rtdbRestoreSession(id, s) { if(!rtdbBase) return; const upd={}; upd['sessions/'+id]=s; upd['deletedSessionIds/'+id]=null; rtdbBase.update(upd); }
 function rtdbSetHealth(dateKey, obj) { if(!rtdbBase) return; rtdbBase.child('health/'+dateKey).set(obj); }
 function rtdbSetLibrary(obj) { if(!rtdbBase) return; rtdbBase.child('library').set(obj); }
 function rtdbSetCustomTags(obj) { if(!rtdbBase) return; rtdbBase.child('customTags').set(obj); }
@@ -2520,45 +2558,38 @@ function showToast(msg) {
   setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(20px)'; }, 3500);
 }
 
-// ── DELETE EXERCISE (TODAY) — undo toast ───────────────────────────────────────
-// Deleting an exercise mid-workout is instant (no "are you sure?" dialog) —
-// instead it drops into an undo toast at the bottom that sticks around
-// indefinitely: unlike showToast() above, there's no setTimeout to fade it
-// out. It only goes away when the user taps UNDO, swipes it off, or deletes
-// another exercise (which drops the previous undo and shows a new one — the
-// first deletion is by then already committed, so nothing else has to happen
-// for it to become permanent). The wrapper stays pointer-events:none so the
+// ── DELETE-WITH-UNDO TOAST ──────────────────────────────────────────────────
+// The app-wide pattern for every delete action: the delete happens instantly
+// (no "are you sure?" dialog) and drops into an undo toast at the bottom that
+// sticks around indefinitely — unlike showToast() above, there's no
+// setTimeout to fade it out. It only goes away when the user taps UNDO,
+// swipes it off, or deletes something else (which drops the previous undo
+// and shows a new one — the first deletion is by then already committed, so
+// nothing else has to happen for it to become permanent — only one delete
+// can be "pending" at a time). The wrapper stays pointer-events:none so the
 // pill is tappable/swipeable but everything else on the page — scrolling,
 // editing sets, whatever — keeps working right underneath it.
-let pendingDelete = null; // { session, index, item }
+//
+// Call showUndoToast(msg, undoFn) right after performing a delete; undoFn
+// should reverse exactly that delete (re-splice the item back in, re-push
+// anything already synced to the cloud, re-render). Each call site closes
+// over whatever it needs to reverse itself — there's no shared restore logic.
+let pendingUndo = null; // { undo: () => void }
 
-function deleteExerciseToday(ei) {
-  const ex = currentSession.exercises[ei];
-  if(!ex) return;
-  currentSession.exercises.splice(ei, 1);
-  saveSession();
-  renderExercises();
-  pendingDelete = { session: currentSession, index: ei, item: ex };
-  showUndoToast(`Deleted "${ex.name}"`);
-}
-
-function undoDeleteExercise() {
-  const pending = pendingDelete;
+function runPendingUndo() {
+  const pending = pendingUndo;
   hideUndoToast();
-  if(!pending || pending.session !== currentSession) return;
-  const insertAt = Math.min(pending.index, currentSession.exercises.length);
-  currentSession.exercises.splice(insertAt, 0, pending.item);
-  saveSession();
-  renderExercises();
+  if(pending && pending.undo) pending.undo();
 }
 
 function hideUndoToast() {
-  pendingDelete = null;
+  pendingUndo = null;
   const wrap = document.getElementById('undo-toast');
   if(wrap) wrap.classList.remove('show');
 }
 
-function showUndoToast(msg) {
+function showUndoToast(msg, undoFn) {
+  pendingUndo = { undo: undoFn };
   let wrap = document.getElementById('undo-toast');
   if(!wrap) {
     wrap = document.createElement('div');
@@ -2570,7 +2601,7 @@ function showUndoToast(msg) {
         <button class="undo-toast-btn" id="undo-toast-btn">UNDO</button>
       </div>`;
     document.body.appendChild(wrap);
-    document.getElementById('undo-toast-btn').addEventListener('click', undoDeleteExercise);
+    document.getElementById('undo-toast-btn').addEventListener('click', runPendingUndo);
     wireUndoToastSwipe(document.getElementById('undo-toast-inner'));
   }
   const inner = document.getElementById('undo-toast-inner');
@@ -3327,12 +3358,29 @@ function esAddSet(ei) {
 function esDeleteSet(ei, si) {
   const ex = esSession.exercises[ei];
   if(ex.sets.length<=1) return;
+  const removed = ex.sets[si];
+  const draft = esSession;
   ex.sets.splice(si,1);
   esRenderExerciseList();
+  showUndoToast('Deleted set', () => {
+    if(draft !== esSession) return;
+    const ex2 = esSession.exercises[ei];
+    if(!ex2) return;
+    ex2.sets.splice(Math.min(si, ex2.sets.length), 0, removed);
+    esRenderExerciseList();
+  });
 }
 function esRemoveExercise(ei) {
+  const removed = esSession.exercises[ei];
+  const draft = esSession;
   esSession.exercises.splice(ei,1);
   esRenderExerciseList();
+  showUndoToast(`Deleted "${removed.name}"`, () => {
+    if(draft !== esSession) return;
+    const insertAt = Math.min(ei, esSession.exercises.length);
+    esSession.exercises.splice(insertAt, 0, removed);
+    esRenderExerciseList();
+  });
 }
 function esShowAddExercise() {
   esAddExerciseMode = true;
@@ -3481,7 +3529,7 @@ function renderHistory() {
             <div class="hist-date">${displayDate}</div>
             <div class="hist-type" style="color:var(--green)">${subEmoji} ${subLabel}</div>
           </div>
-          <button id="del-btn-${k}" onclick="confirmDelete('${k}')" style="background:none;border:none;color:var(--text3);font-size:18px;padding:4px 6px;cursor:pointer;line-height:1;flex-shrink:0;">✕</button>
+          <button id="del-btn-${k}" onclick="deleteSession('${k}')" style="background:none;border:none;color:var(--text3);font-size:18px;padding:4px 6px;cursor:pointer;line-height:1;flex-shrink:0;">✕</button>
         </div>
         <div class="hist-stats">
           ${c.dist?`<div class="hist-stat"><span>${c.dist}</span> mi</div>`:''}
@@ -3493,13 +3541,6 @@ function renderHistory() {
         </div>
         ${c.notes?`<div style="margin-top:8px;font-size:12px;color:var(--text2);font-style:italic;">"${c.notes}"</div>`:''}
         ${metricHtml}
-        <div id="del-confirm-${k}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-          <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Delete this workout permanently?</div>
-          <div style="display:flex;gap:8px;">
-            <button onclick="deleteSession('${k}')" style="flex:1;padding:9px;border-radius:var(--rsm);border:none;background:var(--red-dim);color:var(--red);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Delete</button>
-            <button onclick="cancelDelete('${k}')" style="flex:1;padding:9px;border-radius:var(--rsm);border:1px solid var(--border2);background:var(--surf2);color:var(--text);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
-          </div>
-        </div>
       </div>`;
     }
 
@@ -3525,7 +3566,7 @@ function renderHistory() {
         </div>
         <div style="display:flex;align-items:center;gap:2px;">
           ${chevronHtml}
-          <button id="del-btn-${k}" onclick="event.stopPropagation(); confirmDelete('${k}')" style="background:none;border:none;color:var(--text3);font-size:18px;padding:4px 6px;cursor:pointer;line-height:1;flex-shrink:0;">✕</button>
+          <button id="del-btn-${k}" onclick="event.stopPropagation(); deleteSession('${k}')" style="background:none;border:none;color:var(--text3);font-size:18px;padding:4px 6px;cursor:pointer;line-height:1;flex-shrink:0;">✕</button>
         </div>
       </div>
       <div class="hist-stats">
@@ -3535,13 +3576,6 @@ function renderHistory() {
         ${dur?`<div class="hist-stat"><span>${dur}</span> min</div>`:''}
       </div>${metricHtml}
       ${detailRows?`<div class="hist-detail${isOpen?' open':''}" id="hist-detail-${k}">${detailRows}</div>`:''}
-      <div id="del-confirm-${k}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Delete this workout permanently?</div>
-        <div style="display:flex;gap:8px;">
-          <button onclick="deleteSession('${k}')" style="flex:1;padding:9px;border-radius:var(--rsm);border:none;background:var(--red-dim);color:var(--red);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Delete</button>
-          <button onclick="cancelDelete('${k}')" style="flex:1;padding:9px;border-radius:var(--rsm);border:1px solid var(--border2);background:var(--surf2);color:var(--text);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
-        </div>
-      </div>
     </div>`;
   }).join('');
 }
@@ -3554,21 +3588,9 @@ function toggleHistoryDetail(k) {
   if(chev) chev.classList.toggle('open', open);
 }
 
-function confirmDelete(k) {
-  const confirm = document.getElementById('del-confirm-'+k);
-  const btn = document.getElementById('del-btn-'+k);
-  confirm.style.display = 'block';
-  btn.style.display = 'none';
-}
-
-function cancelDelete(k) {
-  const confirm = document.getElementById('del-confirm-'+k);
-  const btn = document.getElementById('del-btn-'+k);
-  confirm.style.display = 'none';
-  btn.style.display = '';
-}
-
 function deleteSession(k) {
+  const removed = sessions[k];
+  if(!removed) return;
   delete sessions[k];
   save(SESSIONS_KEY, sessions);
   // Record a tombstone: without this, the cloud (and any stale pull) would
@@ -3582,7 +3604,16 @@ function deleteSession(k) {
   rtdbDeleteSession(k);
   updateStats();
   renderHistory();
-  showToast('Workout deleted');
+  showUndoToast('Workout deleted', () => {
+    sessions[k] = removed;
+    save(SESSIONS_KEY, sessions);
+    deletedSessionIds = deletedSessionIds.filter(id => id !== k);
+    save(DELETED_SESSIONS_KEY, deletedSessionIds);
+    syncToSheets();
+    rtdbRestoreSession(k, removed);
+    updateStats();
+    renderHistory();
+  });
 }
 
 // ── EXERCISE HISTORY / SPARKLINE ─────────────────────────────────────────────
@@ -4027,10 +4058,19 @@ function updateGoalField(id, field, value) {
   renderGoals();
 }
 function removeGoal(id) {
+  const idx = goals.findIndex(g=>g.id===id);
+  if(idx===-1) return;
+  const removed = goals[idx];
   goals = goals.filter(g=>g.id!==id);
   saveGoals();
   renderGoalsEditList();
   renderGoals();
+  showUndoToast(`Removed "${removed.name}"`, () => {
+    goals.splice(Math.min(idx, goals.length), 0, removed);
+    saveGoals();
+    renderGoalsEditList();
+    renderGoals();
+  });
 }
 function addGoalRow() {
   goals.push({ id:'g-'+Date.now(), name:'New Goal', exercise:'', target:null });
@@ -4316,7 +4356,12 @@ function removeWorkoutType(id) {
   if(workoutTypes.length <= 1) { showToast('Need at least 1 workout type'); return; }
   const t = getWorkoutType(id);
   if(!t) return;
-  if(!confirm(`Delete "${t.label}"? Past workouts logged under it are kept, but it won't be selectable anymore.`)) return;
+  const idx = workoutTypes.findIndex(x=>x.id===id);
+  const libEntry = library[id];
+  const templateEntry = TEMPLATES[id];
+  const selectModeEntry = libSelectMode[id];
+  const selectedEntry = libSelected[id];
+  const wasCurrentType = currentType === id;
   workoutTypes = workoutTypes.filter(x=>x.id!==id);
   delete library[id];
   delete TEMPLATES[id];
@@ -4324,10 +4369,21 @@ function removeWorkoutType(id) {
   delete libSelected[id];
   saveWorkoutTypes();
   saveLibrary();
-  if(currentType === id) setType(workoutTypes[0].id);
+  if(wasCurrentType) setType(workoutTypes[0].id);
   renderLibrary();
   renderTypeBar();
-  showToast('Deleted "'+t.label+'"');
+  showUndoToast(`Deleted "${t.label}"`, () => {
+    workoutTypes.splice(Math.min(idx, workoutTypes.length), 0, t);
+    if(libEntry !== undefined) library[id] = libEntry;
+    if(templateEntry !== undefined) TEMPLATES[id] = templateEntry;
+    if(selectModeEntry !== undefined) libSelectMode[id] = selectModeEntry;
+    if(selectedEntry !== undefined) libSelected[id] = selectedEntry;
+    saveWorkoutTypes();
+    saveLibrary();
+    if(wasCurrentType) setType(id);
+    renderLibrary();
+    renderTypeBar();
+  });
 }
 
 function addWorkoutType() {
@@ -4520,10 +4576,18 @@ function libUngroupSuperset(type, i) {
 function libRemoveFromSuperset(type, i, mi) {
   const item = library[type][i];
   if(!isSuperset(item)) return;
+  const removedName = item.superset[mi];
+  const willUngroup = item.superset.length <= 2;
   item.superset.splice(mi, 1);
   if(item.superset.length <= 1) library[type].splice(i, 1, ...item.superset);
   saveLibrary();
   renderLibrary();
+  showUndoToast(`Removed "${removedName}" from superset`, () => {
+    item.superset.splice(mi, 0, removedName);
+    if(willUngroup) library[type].splice(i, 1, item);
+    saveLibrary();
+    renderLibrary();
+  });
 }
 function libAddToSupersetGroup(type, i, name) {
   requireCategoryTag(name, () => {
@@ -4570,10 +4634,15 @@ function libMoveEx(type, i, dir) {
 
 function libRemoveEx(type, i) {
   if(library[type].length <= 1) { showToast('Need at least 1 exercise'); return; }
+  const removed = library[type][i];
   library[type].splice(i, 1);
   saveLibrary();
   renderLibrary();
-  showToast('Exercise removed');
+  showUndoToast('Exercise removed', () => {
+    library[type].splice(Math.min(i, library[type].length), 0, removed);
+    saveLibrary();
+    renderLibrary();
+  });
 }
 
 // Rename an exercise everywhere it appears: past session data (so weight/rep
@@ -4730,12 +4799,25 @@ function saveMeasurement() {
 }
 
 function deleteMeas(id, ts) {
-  bodyData.measurements[id] = (bodyData.measurements[id]||[]).filter(e=>e.ts!==ts);
+  const list = bodyData.measurements[id] || [];
+  const idx = list.findIndex(e=>e.ts===ts);
+  const removed = idx!==-1 ? list[idx] : null;
+  bodyData.measurements[id] = list.filter(e=>e.ts!==ts);
   saveBody();
   syncToSheets();
   rtdbRemoveMeasurement(id, ts);
   closeMeasOverlay();
   renderBodyPage();
+  if(removed) {
+    showUndoToast('Measurement deleted', () => {
+      if(!bodyData.measurements[id]) bodyData.measurements[id] = [];
+      bodyData.measurements[id].splice(Math.min(idx, bodyData.measurements[id].length), 0, removed);
+      saveBody();
+      syncToSheets();
+      rtdbSetMeasurement(id, removed);
+      renderBodyPage();
+    });
+  }
 }
 
 function renderBodyPage() {
@@ -4908,13 +4990,25 @@ function cmAddVar() {
 }
 
 function cmRemoveVar(id) {
-  const removedTs = customMetrics.logs.filter(l=>l.varId===id).map(l=>l.ts);
+  const varIdx = customMetrics.vars.findIndex(v=>v.id===id);
+  const removedVar = varIdx!==-1 ? customMetrics.vars[varIdx] : null;
+  const removedLogs = customMetrics.logs.filter(l=>l.varId===id);
+  const removedTs = removedLogs.map(l=>l.ts);
   customMetrics.vars = customMetrics.vars.filter(v=>v.id!==id);
   customMetrics.logs = customMetrics.logs.filter(l=>l.varId!==id);
   saveCustomMetrics();
   rtdbRemoveCMVar(id, removedTs);
   renderCustomMetrics();
-  showToast('Metric removed');
+  if(removedVar) {
+    showUndoToast(`"${removedVar.name}" removed`, () => {
+      customMetrics.vars.splice(Math.min(varIdx, customMetrics.vars.length), 0, removedVar);
+      customMetrics.logs.push(...removedLogs);
+      saveCustomMetrics();
+      rtdbSetCMVar(removedVar);
+      removedLogs.forEach(l => rtdbSetCMLog(l));
+      renderCustomMetrics();
+    });
+  }
 }
 
 function cmLogValue(id) {
@@ -4933,11 +5027,22 @@ function cmLogValue(id) {
 }
 
 function cmDeleteLog(ts) {
+  const idx = customMetrics.logs.findIndex(l=>l.ts===ts);
+  const removed = idx!==-1 ? customMetrics.logs[idx] : null;
   customMetrics.logs = customMetrics.logs.filter(l=>l.ts!==ts);
   saveCustomMetrics();
   syncToSheets();
   rtdbRemoveCMLog(ts);
   renderCustomMetrics();
+  if(removed) {
+    showUndoToast('Log entry deleted', () => {
+      customMetrics.logs.splice(Math.min(idx, customMetrics.logs.length), 0, removed);
+      saveCustomMetrics();
+      syncToSheets();
+      rtdbSetCMLog(removed);
+      renderCustomMetrics();
+    });
+  }
 }
 
 function renderCustomMetrics() {
