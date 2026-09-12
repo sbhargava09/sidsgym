@@ -138,6 +138,15 @@ body{display:flex;flex-direction:column;}
 .undo-toast-msg{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .undo-toast-btn{background:none;border:none;color:var(--accent);font-family:'Syne',sans-serif;font-weight:800;font-size:13px;letter-spacing:0.04em;cursor:pointer;padding:8px 10px;flex-shrink:0;}
 
+/* LOCK BUTTON — floats over the ongoing workout; tap to lock deletes off,
+   press-and-hold to unlock (ring on the button's edge depletes over the hold). */
+.lock-wrap{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom) + 84px);width:64px;height:64px;z-index:150;}
+.lock-ring{position:absolute;top:0;left:0;pointer-events:none;display:none;transform:rotate(-90deg);}
+.lock-btn{position:absolute;top:4px;left:4px;width:56px;height:56px;border-radius:50%;background:rgba(37,42,49,0.82);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;-webkit-touch-callout:none;padding:0;font-size:22px;line-height:1;transition:background 0.15s,border-color 0.15s,transform 0.1s;}
+.lock-btn:active{transform:scale(0.94);}
+.lock-btn.locked{background:rgba(78,92,55,0.82);border-color:var(--accent);}
+body.workout-locked .del-set-btn{opacity:0.4;}
+
 /* DRUM PICKER OVERLAY */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity 0.2s;}
 .overlay.show{opacity:1;pointer-events:all;}
@@ -472,6 +481,18 @@ body{display:flex;flex-direction:column;}
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="add-ex-btn" style="margin-top:0;flex:1;" onclick="showAddExercise()">+ Add Exercise</button>
         <button class="add-ex-btn" style="margin-top:0;flex:1;" onclick="openSupersetBuilder('today', null)">⛓ Add Superset</button>
+      </div>
+
+      <div class="lock-wrap">
+        <svg class="lock-ring" id="lock-ring" width="64" height="64" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="27" fill="none" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="169.6" stroke-dashoffset="0" id="lock-ring-circle"></circle>
+        </svg>
+        <button type="button" class="lock-btn" id="lock-btn" aria-label="Lock workout" aria-pressed="false"
+          onclick="toggleWorkoutLock()"
+          onpointerdown="startUnlockHold()" onpointerup="cancelUnlockHold()"
+          onpointerleave="cancelUnlockHold()" onpointercancel="cancelUnlockHold()">
+          <span id="lock-icon">🔓</span>
+        </button>
       </div>
     </div>
 
@@ -1262,6 +1283,10 @@ let workoutPausedTotal = 0;   // total ms spent paused
 let currentSession = null;
 let currentSessionId = null; // unique ID for this session
 let currentDateKey = null;   // YYYY-MM-DD, kept for health log
+let workoutLocked = false;   // when true, blocks deleting exercises/sets on today's workout
+let unlockHoldTimer = null;
+const UNLOCK_HOLD_MS = 1000;
+const LOCK_RING_CIRC = 169.6; // 2*pi*27, matches #lock-ring-circle's r=27
 
 // Per-exercise pace learning — how long each exercise's card was expanded
 // this session (a proxy for "time spent on that exercise, including its own
@@ -1483,6 +1508,8 @@ function startWorkout() {
   sessionExerciseTimeLog = {};
   workoutStarted = true;
   workoutStartTime = Date.now();
+  setWorkoutLocked(false);
+  resetUnlockRing();
   document.getElementById('start-btn').style.display = 'none';
   document.getElementById('workout-content').style.display = 'block';
   document.querySelector('.type-bar').style.pointerEvents = 'none';
@@ -1824,6 +1851,7 @@ function ungroupToday(ei) {
   showToast('Superset ungrouped');
 }
 function removeFromTodaySuperset(ei, subIdx) {
+  if(blockedByLock()) return;
   const top = currentSession.exercises[ei];
   if(!isSessionSuperset(top)) return;
   const removed = top.exercises[subIdx];
@@ -1847,6 +1875,7 @@ function addExToSuperset(ei) {
 }
 
 function deleteExerciseToday(ei) {
+  if(blockedByLock()) return;
   const ex = currentSession.exercises[ei];
   if(!ex) return;
   const session = currentSession;
@@ -1979,6 +2008,7 @@ function addSet(ei, subIdx) {
 }
 
 function deleteSet(ei, si, subIdx) {
+  if(blockedByLock()) return;
   const top = currentSession.exercises[ei];
   const arr = subIdx==null ? top.sets : top.exercises[subIdx].sets;
   if(arr.length <= 1) return; // always keep at least 1 set
@@ -2000,6 +2030,58 @@ function deleteSet(ei, si, subIdx) {
     saveSession();
     renderExercises();
   });
+}
+
+// ── WORKOUT LOCK ─────────────────────────────────────────────────────────────
+// Tap the lock button to block deleting exercises/sets from the ongoing
+// workout (adding, moving, and editing stay allowed). To unlock, hold the
+// same button for UNLOCK_HOLD_MS — the ring on its edge drains away over the
+// hold as progress feedback; releasing early snaps it back and stays locked.
+function blockedByLock() {
+  if(!workoutLocked) return false;
+  showToast('Locked — hold the lock button to unlock');
+  return true;
+}
+function setWorkoutLocked(v) {
+  workoutLocked = v;
+  const btn = document.getElementById('lock-btn');
+  const icon = document.getElementById('lock-icon');
+  if(btn) { btn.classList.toggle('locked', v); btn.setAttribute('aria-pressed', String(v)); }
+  if(icon) icon.textContent = v ? '🔒' : '🔓';
+  document.body.classList.toggle('workout-locked', v);
+}
+function toggleWorkoutLock() {
+  if(!workoutLocked) setWorkoutLocked(true);
+}
+function resetUnlockRing() {
+  const ring = document.getElementById('lock-ring');
+  const circle = document.getElementById('lock-ring-circle');
+  if(ring) ring.style.display = 'none';
+  if(circle) { circle.style.transition = 'none'; circle.style.strokeDashoffset = '0'; }
+}
+function startUnlockHold() {
+  if(!workoutLocked) return;
+  const ring = document.getElementById('lock-ring');
+  const circle = document.getElementById('lock-ring-circle');
+  if(!ring || !circle) return;
+  ring.style.display = 'block';
+  circle.style.transition = 'none';
+  circle.style.strokeDashoffset = '0';
+  circle.getBoundingClientRect(); // force reflow so the transition below actually animates
+  circle.style.transition = 'stroke-dashoffset ' + UNLOCK_HOLD_MS + 'ms linear';
+  requestAnimationFrame(() => { circle.style.strokeDashoffset = String(LOCK_RING_CIRC); });
+  unlockHoldTimer = setTimeout(() => {
+    unlockHoldTimer = null;
+    setWorkoutLocked(false);
+    resetUnlockRing();
+  }, UNLOCK_HOLD_MS);
+}
+function cancelUnlockHold() {
+  if(unlockHoldTimer) { clearTimeout(unlockHoldTimer); unlockHoldTimer = null; }
+  if(!workoutLocked) return;
+  const circle = document.getElementById('lock-ring-circle');
+  if(circle) { circle.style.transition = 'stroke-dashoffset 0.2s ease'; circle.style.strokeDashoffset = '0'; }
+  setTimeout(() => { if(workoutLocked) resetUnlockRing(); }, 220);
 }
 
 function updateProgress() {
@@ -2085,6 +2167,8 @@ function saveMetrics() {
 }
 function resetTodayUI() {
   hideUndoToast(); // if a set/exercise undo was pending, the workout it referred to is going away — nothing left to restore into
+  setWorkoutLocked(false);
+  resetUnlockRing();
   document.getElementById('start-btn').style.display = '';
   document.getElementById('workout-content').style.display = 'none';
   document.querySelector('.type-bar').style.pointerEvents = '';
