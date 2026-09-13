@@ -156,6 +156,8 @@ body.workout-locked .del-set-btn{opacity:0.4;}
 .drum-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 20px;}
 .drum-tab{padding:10px 20px;font-size:13px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;}
 .drum-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.drum-half-toggle{margin-left:auto;align-self:center;padding:6px 12px;font-size:12px;font-weight:800;font-family:'DM Mono',monospace;border-radius:999px;border:1px solid var(--border);color:var(--text3);cursor:pointer;}
+.drum-half-toggle.active{color:#000;background:var(--accent);border-color:var(--accent);}
 .drum-body{display:flex;height:220px;overflow:hidden;position:relative;}
 .drum-body::before,.drum-body::after{content:'';position:absolute;left:0;right:0;height:80px;z-index:2;pointer-events:none;}
 .drum-body::before{top:0;background:linear-gradient(to bottom,var(--surf),transparent);}
@@ -808,6 +810,7 @@ body.workout-locked .del-set-btn{opacity:0.4;}
     <div class="drum-tabs">
       <div class="drum-tab active" id="dtab-weight" onclick="switchDrumTab('weight')">WEIGHT (lbs)</div>
       <div class="drum-tab" id="dtab-reps" onclick="switchDrumTab('reps')">REPS</div>
+      <div class="drum-half-toggle" id="drum-half-toggle" onclick="toggleDrumHalf()">+2.5</div>
     </div>
     <div class="drum-body">
       <div class="drum-center"></div>
@@ -1306,6 +1309,7 @@ let drumTarget = null; // {ei, si, field}
 let drumTab = 'weight';
 let drumWeightVal = 50;
 let drumRepsVal = 12;
+let drumHalfVal = 0; // 0 or 2.5, added on top of drumWeightVal
 const WEIGHTS = Array.from({length:81}, (_,i) => i*5); // 0..400
 const REPS = Array.from({length:120}, (_,i) => i+1); // 1..120
 
@@ -2738,11 +2742,13 @@ function openDrum(ei, si, startTab, subIdx) {
   const top = currentSession.exercises[ei];
   const owner = subIdx==null ? top : top.exercises[subIdx];
   const s = owner.sets[si];
-  drumWeightVal = s.weight;
+  drumHalfVal = (s.weight % 5 === 2.5) ? 2.5 : 0;
+  drumWeightVal = s.weight - drumHalfVal;
   drumRepsVal = s.reps;
   document.getElementById('drum-title').textContent = owner.name;
   buildDrumCol();
   switchDrumTab(startTab, false);
+  document.getElementById('drum-half-toggle').classList.toggle('active', !!drumHalfVal);
   showOverlay('drum-overlay');
 }
 
@@ -2750,7 +2756,13 @@ function switchDrumTab(tab, build=true) {
   drumTab = tab;
   document.getElementById('dtab-weight').className = 'drum-tab'+(tab==='weight'?' active':'');
   document.getElementById('dtab-reps').className = 'drum-tab'+(tab==='reps'?' active':'');
+  document.getElementById('drum-half-toggle').style.display = tab==='weight' ? '' : 'none';
   if(build) buildDrumCol();
+}
+
+function toggleDrumHalf() {
+  drumHalfVal = drumHalfVal ? 0 : 2.5;
+  document.getElementById('drum-half-toggle').classList.toggle('active', !!drumHalfVal);
 }
 
 function buildDrumCol() {
@@ -2783,7 +2795,7 @@ function drumDone() {
   const top = currentSession.exercises[ei];
   const owner = subIdx==null ? top : top.exercises[subIdx];
   const s = owner.sets[si];
-  s.weight = drumWeightVal;
+  s.weight = drumWeightVal + drumHalfVal;
   s.reps = drumRepsVal;
   saveSession();
   closeOverlay('drum-overlay');
